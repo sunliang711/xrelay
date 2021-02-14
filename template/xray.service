@@ -1,0 +1,25 @@
+[Unit]
+Description=xray service
+#After=network.target
+
+[Service]
+Type=simple
+
+ExecStartPre=<START_PRE>
+ExecStart=<START>
+ExecStartPost=<START_POST>
+
+# ExecStop=
+ExecStopPost=<STOP_POST>
+
+User=<USER>
+WorkingDirectory=<PWD>
+
+Restart=always
+#Environment=
+
+# solve: failed to set SO_MARK for transparent proxy
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+# CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+[Install]
+WantedBy=multi-user.target
