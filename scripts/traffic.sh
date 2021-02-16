@@ -224,18 +224,18 @@ monitor(){
 
 saveDay(){
     local configFile=${1:?'missing config file (json file)'}
-    local filename=year-$(date +%Y)
+    local filename=${configFile}-year-$(date +%Y)
     if [ ! -d $dest ];then
         mkdir $dest
     fi
     echo "saveDay..."
     (date +%FT%T;_snapshot ${configFile}) >> $dest/$filename
-    _zero
+    _zero ${configFile}
 }
 
 saveHour(){
     local configFile=${1:?'missing config file (json file)'}
-    local filename=month-$(date +%Y%m)
+    local filename=${configFile}-month-$(date +%Y%m)
     if [ ! -d $dest ];then
         mkdir $dest
     fi
@@ -244,7 +244,8 @@ saveHour(){
 }
 
 day(){
-    local filename=year-$(date +%Y)
+    local configFile=${1:?'missing config file (json file)'}
+    local filename=${configFile}-year-$(date +%Y)
     $ed $dest/$filename
 }
 
@@ -264,7 +265,8 @@ _zero(){
 }
 
 hour(){
-    local filename=month-$(date +%Y%m)
+    local configFile=${1:?'missing config file (json file)'}
+    local filename=${configFile}-month-$(date +%Y%m)
     $ed $dest/$filename
 }
 

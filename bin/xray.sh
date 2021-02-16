@@ -200,6 +200,7 @@ restart(){
 }
 
 _start_pre(){
+    echo "Enter _start_pre()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
     # check xray genfrontend
@@ -221,6 +222,7 @@ _start_pre(){
 }
 
 _start_post(){
+    echo "Enter _start_post()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
     #traffic,cron
@@ -229,6 +231,7 @@ _start_post(){
 }
 
 _stop_post(){
+    echo "Enter _stop_post()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
     #traffic,cron
@@ -237,9 +240,10 @@ _stop_post(){
 }
 
 _addCron() {
+    echo "Enter _addCron()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     local tmpCron=/tmp/cron.tmp$(date +%FT%T)
-    if crontab -l 2>/dev/null | grep -q "${beginCron}"; then
+    if crontab -l 2>/dev/null | grep -q "${beginCron}-${configName}"; then
         echo "Already exist,quit."
         return 0
     fi
@@ -257,6 +261,7 @@ _addCron() {
 }
 
 _delCron() {
+    echo "Enter _delCron()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     (crontab -l 2>/dev/null | sed -e "/${beginCron}-${configName}/,/${endCron}-${configName}/d") | crontab -
 }
