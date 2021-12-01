@@ -150,12 +150,12 @@ _new(){
         -e "s|<STOP_POST>|${stop_post}|g" \
         -e "s|<USER>|${user}|g" \
         -e "s|<PWD>|${pwd}|g" \
-        ${templateDir}/xray.service > /tmp/${name}.service
+        ${templateDir}/xray.service > /tmp/xray-${name}.service
 
-    _runAsRoot "mv /tmp/${name}.service /etc/systemd/system"
+    _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
     _runAsRoot "sudo systemctl daemon-reload"
-    _runAsRoot "sudo systemctl enable ${name}.service"
-    _runAsRoot "sudo systemctl restart ${name}.service"
+    _runAsRoot "sudo systemctl enable xray-${name}.service"
+    _runAsRoot "sudo systemctl restart xray-${name}.service"
 }
 
 list(){
@@ -183,13 +183,13 @@ config(){
 start(){
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
-    _runAsRoot "systemctl start ${configName}"
+    _runAsRoot "systemctl start xray-${configName}.service"
 }
 
 stop(){
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
-    _runAsRoot "systemctl stop ${configName}"
+    _runAsRoot "systemctl stop xray-${configName}.service"
 }
 
 restart(){
@@ -278,8 +278,8 @@ remove(){
         exit 1
     fi
     echo "Remove ${configName}..."
-    _runAsRoot "systemctl stop ${configName}"
-    _runAsRoot "/bin/rm -rf /etc/snystemd/system/${configName}.service"
+    _runAsRoot "systemctl stop xray-${configName}.service"
+    _runAsRoot "/bin/rm -rf /etc/snystemd/system/xray-${configName}.service"
     _run "/bin/rm -rf ${etcDir}/${configName}.yaml"
     _run "/bin/rm -rf ${etcDir}/${configName}.json"
 }
