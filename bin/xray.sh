@@ -183,6 +183,7 @@ config(){
 start(){
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
+    _new $configName
     _runAsRoot "systemctl start xray-${configName}.service"
 }
 
