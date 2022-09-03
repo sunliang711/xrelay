@@ -13,6 +13,7 @@ ExecStartPost=<START_POST>
 ExecStopPost=<STOP_POST>
 
 User=<USER>
+Group=<GROUP>
 WorkingDirectory=<PWD>
 
 Restart=always

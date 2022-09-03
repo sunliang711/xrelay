@@ -127,10 +127,10 @@ add(){
     # copy and edit config.yaml
     cp ${appsDir}/genfrontend/config.yaml ${etcDir}/${name}.yaml
     $ed ${etcDir}/${name}.yaml
-    _new ${name}
+    _genServiceFile ${name}
 }
 
-_new(){
+_genServiceFile(){
     local name=${1:?'missing config name'}
     # genfrontend ${name}.json
     echo "+ Generate ${name}.json from ${name}.yaml"
@@ -140,7 +140,8 @@ _new(){
     local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
     local start_post="${binDir}/xray.sh _start_post ${name}"
     local stop_post="${binDir}/xray.sh _stop_post ${name}"
-    local user="root"
+    local user="${xrayUser:-clash}"
+    local group="${xrayGroup:-clash}"
     local pwd="${appsDir}/xray"
 
     # new systemd servie file
@@ -149,13 +150,14 @@ _new(){
         -e "s|<START_POST>|${start_post}|g" \
         -e "s|<STOP_POST>|${stop_post}|g" \
         -e "s|<USER>|${user}|g" \
+        -e "s|<GROUP>|${group}|g" \
         -e "s|<PWD>|${pwd}|g" \
         ${templateDir}/xray.service > /tmp/xray-${name}.service
 
     _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
     _runAsRoot "sudo systemctl daemon-reload"
-    _runAsRoot "sudo systemctl enable xray-${name}.service"
-    _runAsRoot "sudo systemctl restart xray-${name}.service"
+    # _runAsRoot "sudo systemctl enable xray-${name}.service"
+    # _runAsRoot "sudo systemctl restart xray-${name}.service"
 }
 
 list(){
@@ -176,14 +178,14 @@ config(){
 
     if [ "${pre}" != "${post}" ];then
         echo "Config file changed,generate new config and restart service..."
-        _new ${configName}
+        start ${configName}
     fi
 }
 
 start(){
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
-    _new $configName
+    _genServiceFile $configName
     _runAsRoot "systemctl start xray-${configName}.service"
 }
 
