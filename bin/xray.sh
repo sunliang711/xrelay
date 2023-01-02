@@ -144,6 +144,19 @@ _genServiceFile(){
     local group="${xrayGroup:-clash}"
     local pwd="${appsDir}/xray"
 
+    # add $user to sudo nopass file
+    nopassFile="/etc/sudoers.d/nopass"
+    if [ ! -e "${nopassFile}" ];then
+        _runAsRoot "touch ${nopassFile}"
+    fi
+    if ! grep -q "${user} ALL=(ALL:ALL) NOPASSWD:ALL" "${nopassFile}";then
+        _runAsRoot "echo \"${user} ALL=(ALL:ALL) NOPASSWD:ALL\" >>${nopassFile}"
+        # echo "${user} ALL=(ALL:ALL) NOPASSWD:ALL" >/tmp/addNopass
+        # cat "${nopassFile}" /tmp/addNopass > /tmp/addNopass2
+        # _runAsRoot "mv /tmp/addNopass2 ${nopassFile}"
+        # /bin/rm -rf /tmp/addNopass /tmp/addNopass2
+    fi
+
     # new systemd servie file
     sed -e "s|<START_PRE>|${start_pre}|g" \
         -e "s|<START>|${start}|g" \
@@ -155,7 +168,7 @@ _genServiceFile(){
         ${templateDir}/xray.service > /tmp/xray-${name}.service
 
     _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
-    _runAsRoot "sudo systemctl daemon-reload"
+    _runAsRoot "systemctl daemon-reload"
     # _runAsRoot "sudo systemctl enable xray-${name}.service"
     # _runAsRoot "sudo systemctl restart xray-${name}.service"
 }

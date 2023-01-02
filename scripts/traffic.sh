@@ -39,6 +39,10 @@ else
     NORMAL=""
 fi
 
+_command_exists(){
+    command -v "$1" > /dev/null 2>&1
+}
+
 _err() {
     echo "$*" >&2
 }
@@ -191,13 +195,32 @@ _snapshot(){
             local remark=$(echo ${tag} | awk -F: '{print $3}')
             oldIFS="${IFS}"
             IFS='|'
+
+
+            # echo "dpt"
+            # echo "port: '${port}'"
+            # echo "output: ${output} END"
+            # echo "dpt|spt>>"
+            # echo "$output"| grep -E "(dpt|spt):${port}\b"
+            # echo "$output"| perl -lne "print if /(dpt|spt)/"
+            # echo "dpt end"
+
             # protocol port bytes pkts
             read pro pt bs pks <<< $(echo "$output"| grep -E "(dpt|spt):${port}\b" | awk '{printf "%s|%s|%s|%s",$3,$10,$2,$1}')
             # bs=$(printf "%'d" $bs)
             # pks=$(printf "%'d" $pks)
             # add comma: 1234567 -> 1,234,567
+
+            # debug
+            # echo "bs: $bs"
+            # echo "pks: $pks"
+
             bs=$(echo $bs | perl -ple "s|(?<=\d)(?=(\d\d\d)+\D*$)|,|g" )
             pks=$(echo $pks | perl -ple "s|(?<=\d)(?=(\d\d\d)+\D*$)|,|g" )
+
+            # debug
+            # echo "bs: $bs"
+            # echo "pks: $pks"
             # debug
             # echo "pro: $pro pt: $pt"
 
