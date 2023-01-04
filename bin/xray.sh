@@ -1,115 +1,74 @@
 #!/bin/bash
 if [ -z "${BASH_SOURCE}" ]; then
     this=${PWD}
-    logfile="/tmp/$(%FT%T).log"
 else
     rpath="$(readlink ${BASH_SOURCE})"
     if [ -z "$rpath" ]; then
         rpath=${BASH_SOURCE}
+    elif echo "$rpath" | grep -q '^/'; then
+        # absolute path
+        echo
+    else
+        # relative path
+        rpath="$(dirname ${BASH_SOURCE})/$rpath"
     fi
     this="$(cd $(dirname $rpath) && pwd)"
-    logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
-source ${this}/../config.sh || { echo "Source config.sh failed"; exit 1; }
-export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-
-user="${SUDO_USER:-$(whoami)}"
-home="$(eval echo ~$user)"
-
-# export TERM=xterm-256color
-
-# Use colors, but only if connected to a terminal, and that terminal
-# supports them.
-if which tput >/dev/null 2>&1; then
-  ncolors=$(tput colors 2>/dev/null)
-fi
-if [ -t 1 ] && [ -n "$ncolors" ] && [ "$ncolors" -ge 8 ]; then
-    RED="$(tput setaf 1)"
-    GREEN="$(tput setaf 2)"
-    YELLOW="$(tput setaf 3)"
-    BLUE="$(tput setaf 4)"
-    CYAN="$(tput setaf 5)"
-    BOLD="$(tput bold)"
-    NORMAL="$(tput sgr0)"
+if [ -r ${SHELLRC_ROOT}/shellrc.d/shelllib ];then
+    source ${SHELLRC_ROOT}/shellrc.d/shelllib
+elif [ -r /tmp/shelllib ];then
+    source /tmp/shelllib
 else
-    RED=""
-    GREEN=""
-    YELLOW=""
-    CYAN=""
-    BLUE=""
-    BOLD=""
-    NORMAL=""
-fi
-
-_err(){
-    echo "$*" >&2
-}
-
-_command_exists(){
-    command -v "$@" > /dev/null 2>&1
-}
-
-rootID=0
-
-_runAsRoot(){
-    cmd="${*}"
-    bash_c='bash -c'
-    if [ "${EUID}" -ne "${rootID}" ];then
-        if _command_exists sudo; then
-            bash_c='sudo -E bash -c'
-        elif _command_exists su; then
-            bash_c='su -c'
-        else
-            cat >&2 <<-'EOF'
-			Error: this installer needs the ability to run commands as root.
-			We are unable to find either "sudo" or "su" available to make this happen.
-			EOF
-            exit 1
-        fi
+    # download shelllib then source
+    shelllibURL=https://gitee.com/sunliang711/init2/raw/master/shell/shellrc.d/shelllib
+    (cd /tmp && curl -s -LO ${shelllibURL})
+    if [ -r /tmp/shelllib ];then
+        source /tmp/shelllib
     fi
-    # only output stderr
-    (set -x; $bash_c "${cmd}" >> ${logfile} )
-}
-
-function _insert_path(){
-    if [ -z "$1" ];then
-        return
-    fi
-    echo -e ${PATH//:/"\n"} | grep -c "^$1$" >/dev/null 2>&1 || export PATH=$1:$PATH
-}
-
-_run(){
-    # only output stderr
-    cmd="${*}"
-    (set -x; bash -c "${cmd}" >> ${logfile})
-}
-
-function _root(){
-    if [ ${EUID} -ne ${rootID} ];then
-        echo "Requires root privilege."
-        exit 1
-    fi
-}
-
-ed=vi
-if _command_exists vim; then
-    ed=vim
 fi
-if _command_exists nvim; then
-    ed=nvim
-fi
-# use ENV: editor to override
-if [ -n "${editor}" ];then
-    ed=${editor}
-fi
+
+# available VARs: user, home, rootID
+# available functions: 
+#    _err(): print "$*" to stderror
+#    _command_exists(): check command "$1" existence
+#    _require_command(): exit when command "$1" not exist
+#    _runAsRoot():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _insert_path(): insert "$1" to PATH
+#    _run():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _ensureDir(): mkdir if $@ not exist
+#    _root(): check if it is run as root
+#    _require_root(): exit when not run as root
+#    _linux(): check if it is on Linux
+#    _require_linux(): exit when not on Linux
+#    _wait(): wait $i seconds in script
+#    _must_ok(): exit when $? not zero
+#    _info(): info log
+#    _infoln(): info log with \n
+#    _error(): error log
+#    _errorln(): error log with \n
+#    _checkService(): check $1 exist in systemd
+
+
 ###############################################################################
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
 ###############################################################################
+
+source ${this}/../config.sh || { echo "source config.sh failed"; exit 1; }
+
 firewallCMD=iptables
 beginCron="#begin v2relay cron"
 endCron="#end v2relay cron"
+defaultXrayPath="${appsDir}/xray/xray"
 
 add(){
     local name=${1:?'missing name'}
@@ -137,12 +96,14 @@ _genServiceFile(){
     _run "(${appsDir}/genfrontend/genfrontend -t ${appsDir}/genfrontend/frontendTemplate -c ${etcDir}/${name}.yaml -o ${etcDir}/${name}.json)" || { echo "${RED}failed!"; exit 1; }
 
     local start_pre="${binDir}/xray.sh _start_pre ${name}"
-    local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
+    # local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
+    local start="${binDir}/xray.sh _start ${name}"
     local start_post="${binDir}/xray.sh _start_post ${name}"
     local stop_post="${binDir}/xray.sh _stop_post ${name}"
     local user="${xrayUser:-clash}"
     local group="${xrayGroup:-clash}"
     local pwd="${appsDir}/xray"
+    local xrayPath=${appsDir}/xray/xray
 
     # add $user to sudo nopass file
     nopassFile="/etc/sudoers.d/nopass"
@@ -151,10 +112,6 @@ _genServiceFile(){
     fi
     if ! grep -q "${user} ALL=(ALL:ALL) NOPASSWD:ALL" "${nopassFile}";then
         _runAsRoot "echo \"${user} ALL=(ALL:ALL) NOPASSWD:ALL\" >>${nopassFile}"
-        # echo "${user} ALL=(ALL:ALL) NOPASSWD:ALL" >/tmp/addNopass
-        # cat "${nopassFile}" /tmp/addNopass > /tmp/addNopass2
-        # _runAsRoot "mv /tmp/addNopass2 ${nopassFile}"
-        # /bin/rm -rf /tmp/addNopass /tmp/addNopass2
     fi
 
     # new systemd servie file
@@ -165,6 +122,7 @@ _genServiceFile(){
         -e "s|<USER>|${user}|g" \
         -e "s|<GROUP>|${group}|g" \
         -e "s|<PWD>|${pwd}|g" \
+        -e "s|<XRAY_PATH>|${xrayPath}|g" \
         ${templateDir}/xray.service > /tmp/xray-${name}.service
 
     _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
@@ -200,6 +158,19 @@ start(){
     configName="${configName%.yaml}"
     _genServiceFile $configName
     _runAsRoot "systemctl start xray-${configName}.service"
+}
+
+_start(){
+    local configName=${1:?'missing config file name (just name,no yaml extension)'}
+    configName="${configName%.yaml}"
+
+    if [ -n "${XRAY_PATH}" ];then
+        xrayPath="${XRAY_PATH}"
+    else
+        xrayPath="${defaultXrayPath}"
+    fi
+    echo "xrayPath: ${xrayPath}"
+    "${xrayPath}" run -c "${etcDir}/${configName}.json"
 }
 
 stop(){
@@ -273,7 +244,7 @@ _addCron() {
 	${endCron}-${configName}
 	EOF
 
-    ( crontab -l 2>/dev/null; cat ${tmpCron}) | crontab -
+    ( crontab -l 2>/dev/null; cat ${tmpCron}) | sudo crontab -
 }
 
 _delCron() {
@@ -295,7 +266,7 @@ remove(){
     fi
     echo "Remove ${configName}..."
     _runAsRoot "systemctl stop xray-${configName}.service"
-    _runAsRoot "/bin/rm -rf /etc/snystemd/system/xray-${configName}.service"
+    _runAsRoot "/bin/rm -rf /etc/systemd/system/xray-${configName}.service"
     _run "/bin/rm -rf ${etcDir}/${configName}.yaml"
     _run "/bin/rm -rf ${etcDir}/${configName}.json"
 }
