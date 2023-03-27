@@ -130,7 +130,7 @@ install(){
     fi
     echo "Install location: $dest"
 
-    version=${2:-1.2.4}
+    version=${2:-1.7.5}
 
     downloadDir=/tmp/xray-download
     echo "Download dir: $downloadDir"
@@ -139,24 +139,26 @@ install(){
     fi
     cd "$downloadDir"
 
-    case $(uname) in
-        Darwin)
-            url="https://source711.oss-cn-shanghai.aliyuncs.com/xray/${version}/Xray-macos-64.zip"
+
+    if [[ "$(uname)" != Linux ]];then
+        echo "Only support Linux" 1>&2
+        exit 1
+    fi
+
+    case $(uname -m) in
+        # rasperberry arm64
+        aarch64)
+            url="https://github.com/XTLS/Xray-core/releases/download/v${version}/Xray-linux-arm64-v8a.zip"
             zipfile=${url##*/}
             ;;
-        Linux)
-            url="https://source711.oss-cn-shanghai.aliyuncs.com/xray/${version}/Xray-linux-64.zip"
+        x86_64)
+            url="https://github.com/XTLS/Xray-core/releases/download/v${version}/Xray-linux-64.zip"
             zipfile=${url##*/}
             ;;
     esac
 
-    # rasperberry arm64
-    if [ $(uname -m) == "aarch64" ];then
-        url="https://source711.oss-cn-shanghai.aliyuncs.com/xray/${version}/Xray-linux-arm64-v8a.zip"
-        zipfile=${url##*/}
-    fi
-
     if [ ! -e "$zipfile" ];then
+        echo "download $url"
         curl -LO "$url" || { echo "download $zipfile error"; exit 1; }
     else
         echo "Use ${downloadDir}/$zipfile cache file"
