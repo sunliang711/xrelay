@@ -250,7 +250,7 @@ _addCron() {
 _delCron() {
     echo "Enter _delCron()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
-    (crontab -l 2>/dev/null | sed -e "/${beginCron}-${configName}/,/${endCron}-${configName}/d") | crontab -
+    (crontab -l 2>/dev/null | sed -e "/${beginCron}-${configName}/,/${endCron}-${configName}/d") | sudo crontab -
 }
 
 traffic(){
