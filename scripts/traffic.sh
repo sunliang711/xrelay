@@ -210,6 +210,10 @@ _snapshot(){
             # bs=$(printf "%'d" $bs)
             # pks=$(printf "%'d" $pks)
             # add comma: 1234567 -> 1,234,567
+            if [ -z "$bs" ];then
+                echo "no such port data: ${port}"
+                return 1
+            fi
 
             # debug
             # echo "bs: $bs"
