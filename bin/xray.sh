@@ -169,7 +169,7 @@ _genServiceFile(){
 
     _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
     _runAsRoot "systemctl daemon-reload"
-    # _runAsRoot "sudo systemctl enable xray-${name}.service"
+    _runAsRoot "sudo systemctl enable xray-${name}.service"
     # _runAsRoot "sudo systemctl restart xray-${name}.service"
 }
 
