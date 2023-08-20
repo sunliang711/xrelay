@@ -107,9 +107,9 @@ fi
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
 ###############################################################################
-firewallCMD=iptables
 beginCron="#begin v2relay cron"
 endCron="#end v2relay cron"
+clashGroup=clash
 
 add(){
     local name=${1:?'missing name'}
@@ -140,22 +140,22 @@ _genServiceFile(){
     local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
     local start_post="${binDir}/xray.sh _start_post ${name}"
     local stop_post="${binDir}/xray.sh _stop_post ${name}"
-    local user="${xrayUser:-clash}"
-    local group="${xrayGroup:-clash}"
+    local user="root"
+    local group="${clashGroup}"
     local pwd="${appsDir}/xray"
 
     # add $user to sudo nopass file
-    nopassFile="/etc/sudoers.d/nopass"
-    if [ ! -e "${nopassFile}" ];then
-        _runAsRoot "touch ${nopassFile}"
-    fi
-    if ! grep -q "${user} ALL=(ALL:ALL) NOPASSWD:ALL" "${nopassFile}";then
-        _runAsRoot "echo \"${user} ALL=(ALL:ALL) NOPASSWD:ALL\" >>${nopassFile}"
-        # echo "${user} ALL=(ALL:ALL) NOPASSWD:ALL" >/tmp/addNopass
-        # cat "${nopassFile}" /tmp/addNopass > /tmp/addNopass2
-        # _runAsRoot "mv /tmp/addNopass2 ${nopassFile}"
-        # /bin/rm -rf /tmp/addNopass /tmp/addNopass2
-    fi
+    # nopassFile="/etc/sudoers.d/nopass"
+    # if [ ! -e "${nopassFile}" ];then
+    #     _runAsRoot "touch ${nopassFile}"
+    # fi
+    # if ! grep -q "${user} ALL=(ALL:ALL) NOPASSWD:ALL" "${nopassFile}";then
+    #     _runAsRoot "echo \"${user} ALL=(ALL:ALL) NOPASSWD:ALL\" >>${nopassFile}"
+    #     # echo "${user} ALL=(ALL:ALL) NOPASSWD:ALL" >/tmp/addNopass
+    #     # cat "${nopassFile}" /tmp/addNopass > /tmp/addNopass2
+    #     # _runAsRoot "mv /tmp/addNopass2 ${nopassFile}"
+    #     # /bin/rm -rf /tmp/addNopass /tmp/addNopass2
+    # fi
 
     # new systemd servie file
     sed -e "s|<START_PRE>|${start_pre}|g" \

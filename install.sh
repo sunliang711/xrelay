@@ -121,8 +121,22 @@ install() {
     _run "mkdir ${root}/etc"
     _run "${scriptsDir}/installXray.sh install ${root}/apps" || { echo "Install xray failed!"; exit 1; }
     _run "${scriptsDir}/installGenfrontend.sh install ${root}/apps" || { echo "Install genfrontend failed!"; exit 1; }
-    _insert_path "${binDir}"
+
+    _addgroup
+
     echo "Add ${binDir} to PATH"
+}
+
+_addgroup(){
+    set -e
+    if getent group ${clashGroup} >/dev/null 2>&1;then
+        echo "-- group: ${clashGroup} already exists, skip"
+        return
+    fi
+
+    echo -n "-- add group ${clashGroup}.."
+    sudo groupadd ${clashGroup} && { echo " [ok]"; } || { echo " [failed]"; exit 1; }
+
 }
 
 uninstall() {
