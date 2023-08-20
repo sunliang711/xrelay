@@ -118,6 +118,7 @@ _need(){
 }
 
 install() {
+    _need iptables
     _run "mkdir ${root}/etc"
     _run "${scriptsDir}/installXray.sh install ${root}/apps" || { echo "Install xray failed!"; exit 1; }
     _run "${scriptsDir}/installGenfrontend.sh install ${root}/apps" || { echo "Install genfrontend failed!"; exit 1; }
