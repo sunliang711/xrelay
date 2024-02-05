@@ -215,6 +215,14 @@ restart(){
     start ${configName}
 }
 
+log(){
+    local configName=${1:?'missing config file name (just name,no yaml extension)'}
+    configName="${configName%.yaml}"
+    # _runAsRoot "journalctl -u xray-${configName} -f"
+    sudo journalctl -u xray-${configName} -f
+
+}
+
 _start_pre(){
     echo "Enter _start_pre()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
