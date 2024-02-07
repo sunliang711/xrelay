@@ -52,10 +52,41 @@ _command_exists(){
 
 rootID=0
 
-_runAsRoot(){
-    cmd="${*}"
+_runAsRoot() {
+    local trace=0
+    local subshell=0
+    local nostdout=0
+    local nostderr=0
+
+    local optNum=0
+    for opt in ${@}; do
+        case "${opt}" in
+        --trace | -x)
+            trace=1
+            ((optNum++))
+            ;;
+        --subshell | -s)
+            subshell=1
+            ((optNum++))
+            ;;
+        --no-stdout)
+            nostdout=1
+            ((optNum++))
+            ;;
+        --no-stderr)
+            nostderr=1
+            ((optNum++))
+            ;;
+        *)
+            break
+            ;;
+        esac
+    done
+
+    shift $(($optNum))
+    local cmd="${*}"
     bash_c='bash -c'
-    if [ "${EUID}" -ne "${rootID}" ];then
+    if [ "${EUID}" -ne "${rootID}" ]; then
         if _command_exists sudo; then
             bash_c='sudo -E bash -c'
         elif _command_exists su; then
@@ -65,11 +96,38 @@ _runAsRoot(){
 			Error: this installer needs the ability to run commands as root.
 			We are unable to find either "sudo" or "su" available to make this happen.
 			EOF
-            exit 1
+            return 1
         fi
     fi
-    # only output stderr
-    (set -x; $bash_c "${cmd}" >> ${logfile} )
+
+    local fullcommand="${bash_c} ${cmd}"
+    if [ $nostdout -eq 1 ]; then
+        cmd="${cmd} >/dev/null"
+    fi
+    if [ $nostderr -eq 1 ]; then
+        cmd="${cmd} 2>/dev/null"
+    fi
+
+    if [ $subshell -eq 1 ]; then
+        if [ $trace -eq 1 ]; then
+            (
+                { set -x; } 2>/dev/null
+                ${bash_c} "${cmd}"
+            )
+        else
+            (${bash_c} "${cmd}")
+        fi
+    else
+        if [ $trace -eq 1 ]; then
+            { set -x; } 2>/dev/null
+            ${bash_c} "${cmd}"
+            local ret=$?
+            { set +x; } 2>/dev/null
+            return $ret
+        else
+            ${bash_c} "${cmd}"
+        fi
+    fi
 }
 
 function _insert_path(){
@@ -218,8 +276,8 @@ restart(){
 log(){
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
     configName="${configName%.yaml}"
-    # _runAsRoot "journalctl -u xray-${configName} -f"
-    sudo journalctl -u xray-${configName} -f
+    _runAsRoot "journalctl -u xray-${configName} -f"
+    # sudo journalctl -u xray-${configName} -f
 
 }
 
