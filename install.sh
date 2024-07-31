@@ -150,9 +150,6 @@ _createUser(){
 }
 
 uninstall() {
-    echo "Remove genfrontend..."
-    _run "/bin/rm -rf ${appsDir}/genfrontend"
-
     echo "Remove xray..."
     _run "/bin/rm -rf ${appsDir}/xray"
 
