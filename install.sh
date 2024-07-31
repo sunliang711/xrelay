@@ -45,11 +45,6 @@ else
     fi
 fi
 
-_run(){
-    # only output stderr
-    cmd="$*"
-    (set -x; bash -c "${cmd}" >> ${logfile})
-}
 
 # available VARs: user, home, rootID
 # available functions: 
@@ -106,8 +101,8 @@ install() {
     pip3 install pyyaml
     pip3 install jinja2
 
-    _run "mkdir ${root}/etc"
-    _run "${scriptsDir}/installXray.sh install ${root}/apps/xray" || { echo "Install xray failed!"; exit 1; }
+    mkdir ${root}/etc
+    ${scriptsDir}/installXray.sh install ${root}/apps/xray || { echo "Install xray failed!"; exit 1; }
 
     _addgroup
 
