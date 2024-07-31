@@ -360,7 +360,7 @@ show_help() {
 }
 
 # 子命令数组
-COMMANDS=("help" "example")
+COMMANDS=("help" "install")
 
 source ${this}/config.sh || { echo "source config.sh failed"; exit 1; }
 clashUser=clash
@@ -458,10 +458,6 @@ case "$command" in
   help)
     show_help
     ;;
-  example)
-    example_command "$@"
-    ;;
-    #todo
   *)
     ${command} "$@"
     ;;
