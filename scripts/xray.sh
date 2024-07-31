@@ -359,73 +359,77 @@ show_help() {
   echo "  -l LOG_LEVEL  Set the log level (FATAL ERROR, WARNING, INFO, SUCCESS, DEBUG)"
 }
 
+------------------------------------------------------------
 # 子命令数组
 COMMANDS=("help" "install")
 
-source ${this}/config.sh || { echo "source config.sh failed"; exit 1; }
-clashUser=clash
-
-install() {
-    set -e
-    _require_command iptables
-    # yaml2json.py need python3
-    _require_command python3
-    _require_command pip3
-    _require_command sudo
+check(){
+    _require_command curl
     _require_command unzip
-
-    log INFO "install pyyaml jinja2"
-    pip3 install pyyaml
-    pip3 install jinja2
-
-    log INFO "create ${root}/etc"
-    [ ! -d ${root}/etc ] && mkdir ${root}/etc
-
-    ${scriptsDir}/installXray.sh install ${root}/apps/xray || { echo "Install xray failed!"; exit 1; }
-
-    _addgroup
+    _require_command jq
 }
 
-_addgroup(){
-    set -e
-    if getent group ${clashGroup} >/dev/null 2>&1;then
-        echo "-- group: ${clashGroup} already exists, skip"
-        return
+install(){
+    check
+    dest="${1}"
+    # download location
+    if [ -z "${dest}" ];then
+        echo "-- no download destination(\$1), use default location: PWD(${PWD})"
+        dest="${PWD}"
+    fi
+    if [ ! -d "${dest}" ];then
+        echo "-- ${dest} not exists, create it.."
+        mkdir -p "${dest}" || { echo "create ${dest} failed!"; exit 1; }
     fi
 
-    echo -n "-- add group ${clashGroup}.."
-    sudo groupadd ${clashGroup} && { echo " [ok]"; } || { echo " [failed]"; exit 1; }
-
-    ${scriptsDir}/installXray.sh install ${root}/apps || { echo "Install xray failed!"; exit 1; }
-    ${scriptsDir}/installGenfrontend.sh install ${root}/apps || { echo "Install genfrontend failed!"; exit 1; }
-    _createUser
-    echo "Add ${binDir} to PATH"
-}
-
-_createUser(){
-    if [ $(uname) != "Linux" ];then
-        return
+    # download url
+    local platform="$(uname)-$(uname -m)"
+    case ${platform} in
+        Linux-x86_64)
+            target="linux-64"
+            ;;
+        Linux-aarch64)
+            target="linux-arm64"
+            ;;
+        Darwin-x86_64)
+            target="macos-64"
+            ;;
+        Darwin-arm64)
+            target="macos-arm64"
+            ;;
+        *)
+            echo "unknown platform"
+            exit 1
+            ;;
+    esac
+    version="${2}"
+    if [ -n "${version}" ];then
+        echo "TODO"
+    else
+        echo "-- no version specified(\$2), get latest version via github api.."
+        # get latest download url
+        downloadLink=`curl -s https://api.github.com/repos/XTLS/Xray-core/releases/latest | jq | grep 'browser_download_url' | grep -v 'dgst' | grep "${target}" | head -1 | perl -lne 'print $1 if /"(https.+)"/'`
+        if [ -z "${downloadLink}" ];then
+            echo "-- cannot get latest download url"
+            exit 1
+        fi
     fi
-    if id -u ${clashUser} >/dev/null 2>&1;then
-        echo "user: ${clashUser} exists"
-        return
-    fi
-    echo "add user: ${clashUser}.."
-    sudo useradd -M -U -s /sbin/nologin ${clashUser} || { echo "add user: ${clashUser} failed!"; return 1; }
+
+    echo "-- download ${downloadLink} to ${dest} .."
+    zipFile=${downloadLink##*/}
+    (
+        cd ${dest}
+        echo -n "-- downloading xray.."
+        curl -s -LO "${downloadLink}" && { echo " [ok]"; } || { echo "download xray failed!"; exit 1; }
+        echo -n "-- unzip xray.."
+        unzip "${zipFile}" && { echo " [ok]"; } || { echo "unzip failed!"; exit 1; }
+
+    )
+
+
 }
 
-uninstall() {
-    echo "Remove xray..."
-    /bin/rm -rf ${appsDir}/xray
-
-    # TODO
-    # stop all service and remove all service files
-    ${binDir}/xray.sh _removeAll
-}
-
-em() {
-    $ed $0
-}
+------------------------------------------------------------
 
 # 解析命令行参数
 while getopts ":l:" opt; do
