@@ -1,14 +1,18 @@
 #!/bin/bash
 if [ -z "${BASH_SOURCE}" ]; then
     this=${PWD}
-    logfile="/tmp/$(%FT%T).log"
 else
     rpath="$(readlink ${BASH_SOURCE})"
     if [ -z "$rpath" ]; then
         rpath=${BASH_SOURCE}
+    elif echo "$rpath" | grep -q '^/'; then
+        # absolute path
+        echo
+    else
+        # relative path
+        rpath="$(dirname ${BASH_SOURCE})/$rpath"
     fi
     this="$(cd $(dirname $rpath) && pwd)"
-    logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
 
@@ -33,82 +37,51 @@ if [ -t 1 ] && [ -n "$ncolors" ] && [ "$ncolors" -ge 8 ]; then
     BOLD="$(tput bold)"
     NORMAL="$(tput sgr0)"
 else
-    RED=""
-    GREEN=""
-    YELLOW=""
-    CYAN=""
-    BLUE=""
-    BOLD=""
-    NORMAL=""
-fi
-
-_err(){
-    echo "$*" >&2
-}
-
-_command_exists(){
-    command -v "$@" > /dev/null 2>&1
-}
-
-rootID=0
-
-_runAsRoot(){
-    cmd="${*}"
-    bash_c='bash -c'
-    if [ "${EUID}" -ne "${rootID}" ];then
-        if _command_exists sudo; then
-            bash_c='sudo -E bash -c'
-        elif _command_exists su; then
-            bash_c='su -c'
-        else
-            cat >&2 <<-'EOF'
-			Error: this installer needs the ability to run commands as root.
-			We are unable to find either "sudo" or "su" available to make this happen.
-			EOF
-            exit 1
-        fi
+    # download shelllib then source
+    shelllibURL=https://gitee.com/sunliang711/init2/raw/master/shell/shellrc.d/shelllib
+    (cd /tmp && curl -s -LO ${shelllibURL})
+    if [ -r /tmp/shelllib ];then
+        source /tmp/shelllib
     fi
-    # only output stderr
-    (set -x; $bash_c "${cmd}" >> ${logfile} )
-}
-
-function _insert_path(){
-    if [ -z "$1" ];then
-        return
-    fi
-    echo -e ${PATH//:/"\n"} | grep -c "^$1$" >/dev/null 2>&1 || export PATH=$1:$PATH
-}
-
-_run(){
-    local cmd="${*}"
-    # only output stderr
-    (set -x; bash -c "${cmd}" >> ${logfile})
-}
-
-function _root(){
-    if [ ${EUID} -ne ${rootID} ];then
-        echo "Need run as root!"
-        echo "Requires root privileges."
-        exit 1
-    fi
-}
-
-ed=vi
-if _command_exists vim; then
-    ed=vim
 fi
-if _command_exists nvim; then
-    ed=nvim
-fi
-# use ENV: editor to override
-if [ -n "${editor}" ];then
-    ed=${editor}
-fi
+
+# available VARs: user, home, rootID
+# available functions: 
+#    _err(): print "$*" to stderror
+#    _command_exists(): check command "$1" existence
+#    _require_command(): exit when command "$1" not exist
+#    _runAsRoot():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _insert_path(): insert "$1" to PATH
+#    _run():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _ensureDir(): mkdir if $@ not exist
+#    _root(): check if it is run as root
+#    _require_root(): exit when not run as root
+#    _linux(): check if it is on Linux
+#    _require_linux(): exit when not on Linux
+#    _wait(): wait $i seconds in script
+#    _must_ok(): exit when $? not zero
+#    _info(): info log
+#    _infoln(): info log with \n
+#    _error(): error log
+#    _errorln(): error log with \n
+#    _checkService(): check $1 exist in systemd
+
+
 ###############################################################################
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
 ###############################################################################
-source "${this}/config.sh"
+source ${this}/config.sh || { echo "source config.sh failed"; exit 1; }
+clashUser=clash
+
 _need(){
     local cmd=${1}
     if ! command -v $cmd >/dev/null 2>&1;then
@@ -145,6 +118,32 @@ _addgroup(){
     echo -n "-- add group ${clashGroup}.."
     sudo groupadd ${clashGroup} && { echo " [ok]"; } || { echo " [failed]"; exit 1; }
 
+    _run "${scriptsDir}/installXray.sh install ${root}/apps" || { echo "Install xray failed!"; exit 1; }
+    _run "${scriptsDir}/installGenfrontend.sh install ${root}/apps" || { echo "Install genfrontend failed!"; exit 1; }
+    _insert_path "${binDir}"
+    _createUser
+    _installIptables
+    echo "Add ${binDir} to PATH"
+}
+
+_installIptables(){
+    if ! command -v iptables>/dev/null 2>&1;then
+        echo "install iptables.."
+        sudo apt install iptables -y || { echo "failed!"; exit 1; }
+    fi
+
+}
+
+_createUser(){
+    if [ $(uname) != "Linux" ];then
+        return
+    fi
+    if id -u ${clashUser} >/dev/null 2>&1;then
+        echo "user: ${clashUser} exists"
+        return
+    fi
+    echo "add user: ${clashUser}.."
+    sudo useradd -M -U -s /sbin/nologin ${clashUser} || { echo "add user: ${clashUser} failed!"; return 1; }
 }
 
 uninstall() {

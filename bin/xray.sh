@@ -1,14 +1,18 @@
 #!/bin/bash
 if [ -z "${BASH_SOURCE}" ]; then
     this=${PWD}
-    logfile="/tmp/$(%FT%T).log"
 else
     rpath="$(readlink ${BASH_SOURCE})"
     if [ -z "$rpath" ]; then
         rpath=${BASH_SOURCE}
+    elif echo "$rpath" | grep -q '^/'; then
+        # absolute path
+        echo
+    else
+        # relative path
+        rpath="$(dirname ${BASH_SOURCE})/$rpath"
     fi
     this="$(cd $(dirname $rpath) && pwd)"
-    logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
 export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -135,31 +139,47 @@ function _insert_path(){
     fi
     echo -e ${PATH//:/"\n"} | grep -c "^$1$" >/dev/null 2>&1 || export PATH=$1:$PATH
 }
-
-_run(){
-    # only output stderr
-    cmd="${*}"
-    (set -x; bash -c "${cmd}" >> ${logfile})
-}
-
-function _root(){
-    if [ ${EUID} -ne ${rootID} ];then
-        echo "Requires root privilege."
-        exit 1
-    fi
-}
-
 ed=vi
 if _command_exists vim; then
     ed=vim
 fi
-if _command_exists nvim; then
+if _command_exists nvim;then
     ed=nvim
 fi
-# use ENV: editor to override
 if [ -n "${editor}" ];then
     ed=${editor}
 fi
+
+# available VARs: user, home, rootID
+# available functions: 
+#    _err(): print "$*" to stderror
+#    _command_exists(): check command "$1" existence
+#    _require_command(): exit when command "$1" not exist
+#    _runAsRoot():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _insert_path(): insert "$1" to PATH
+#    _run():
+#                  -x (trace)
+#                  -s (run in subshell)
+#                  --nostdout (discard stdout)
+#                  --nostderr (discard stderr)
+#    _ensureDir(): mkdir if $@ not exist
+#    _root(): check if it is run as root
+#    _require_root(): exit when not run as root
+#    _linux(): check if it is on Linux
+#    _require_linux(): exit when not on Linux
+#    _wait(): wait $i seconds in script
+#    _must_ok(): exit when $? not zero
+#    _info(): info log
+#    _infoln(): info log with \n
+#    _error(): error log
+#    _errorln(): error log with \n
+#    _checkService(): check $1 exist in systemd
+
+
 ###############################################################################
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
@@ -167,7 +187,7 @@ fi
 source ${this}/../config.sh || { echo "Source config.sh failed"; exit 1; }
 beginCron="#begin v2relay cron"
 endCron="#end v2relay cron"
-clashGroup=clash
+defaultXrayPath="${appsDir}/xray/xray"
 
 # yaml2json.py need python3
 if ! command -v python3 >/dev/null 2>&1;then
@@ -207,12 +227,14 @@ _genServiceFile(){
     cd -
 
     local start_pre="${binDir}/xray.sh _start_pre ${name}"
-    local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
+    # local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
+    local start="${binDir}/xray.sh _start ${name}"
     local start_post="${binDir}/xray.sh _start_post ${name}"
     local stop_post="${binDir}/xray.sh _stop_post ${name}"
     local user="root"
     local group="${clashGroup}"
     local pwd="${appsDir}/xray"
+    local xrayPath=${appsDir}/xray/xray
 
     # add $user to sudo nopass file
     # nopassFile="/etc/sudoers.d/nopass"
@@ -235,6 +257,7 @@ _genServiceFile(){
         -e "s|<USER>|${user}|g" \
         -e "s|<GROUP>|${group}|g" \
         -e "s|<PWD>|${pwd}|g" \
+        -e "s|<XRAY_PATH>|${xrayPath}|g" \
         ${templateDir}/xray.service > /tmp/xray-${name}.service
 
     _runAsRoot "mv /tmp/xray-${name}.service /etc/systemd/system"
@@ -270,6 +293,19 @@ start(){
     configName="${configName%.yaml}"
     _genServiceFile $configName
     _runAsRoot "systemctl start xray-${configName}.service"
+}
+
+_start(){
+    local configName=${1:?'missing config file name (just name,no yaml extension)'}
+    configName="${configName%.yaml}"
+
+    if [ -n "${XRAY_PATH}" ];then
+        xrayPath="${XRAY_PATH}"
+    else
+        xrayPath="${defaultXrayPath}"
+    fi
+    echo "xrayPath: ${xrayPath}"
+    "${xrayPath}" run -c "${etcDir}/${configName}.json"
 }
 
 stop(){
@@ -351,13 +387,13 @@ _addCron() {
 	${endCron}-${configName}
 	EOF
 
-    ( crontab -l 2>/dev/null; cat ${tmpCron}) | crontab -
+    ( crontab -l 2>/dev/null; cat ${tmpCron}) | sudo crontab -
 }
 
 _delCron() {
     echo "Enter _delCron()..."
     local configName=${1:?'missing config file name (just name,no yaml extension)'}
-    (crontab -l 2>/dev/null | sed -e "/${beginCron}-${configName}/,/${endCron}-${configName}/d") | crontab -
+    (crontab -l 2>/dev/null | sed -e "/${beginCron}-${configName}/,/${endCron}-${configName}/d") | sudo crontab -
 }
 
 traffic(){
@@ -373,17 +409,17 @@ remove(){
     fi
     echo "Remove ${configName}..."
     _runAsRoot "systemctl stop xray-${configName}.service"
-    _runAsRoot "/bin/rm -rf /etc/snystemd/system/xray-${configName}.service"
-    _run "/bin/rm -rf ${etcDir}/${configName}.yaml"
-    _run "/bin/rm -rf ${etcDir}/${configName}.json"
+    _runAsRoot "/bin/rm -rf /etc/systemd/system/xray-${configName}.service"
+    _runAsRoot "/bin/rm -rf ${etcDir}/${configName}.yaml"
+    _runAsRoot "/bin/rm -rf ${etcDir}/${configName}.json"
 }
 
 _removeAll(){
     cd ${etcDir}
     for etc in $(ls *.yaml 2>/dev/null);do
         remove ${etc%.yaml}
-        _run "/bin/rm -rf ${etc%.yaml}.json"
-        _run "/bin/rm -rf ${etc}"
+        _runAsRoot "/bin/rm -rf ${etc%.yaml}.json"
+        _runAsRoot "/bin/rm -rf ${etc}"
     done
 }
 
