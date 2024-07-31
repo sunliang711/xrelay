@@ -97,6 +97,7 @@ install() {
     # yaml2json.py need python3
     _need python3
     _need pip3
+    _need sudo
 
     pip3 install pyyaml
     pip3 install jinja2
