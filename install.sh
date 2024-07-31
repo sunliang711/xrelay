@@ -98,6 +98,7 @@ install() {
     _need python3
     _need pip3
     _need sudo
+    _need unzip
 
     pip3 install pyyaml
     pip3 install jinja2
