@@ -374,11 +374,12 @@ install() {
     _require_command sudo
     _require_command unzip
 
+    log INFO "install pyyaml jinja2"
     pip3 install pyyaml
     pip3 install jinja2
 
     log INFO "create ${root}/etc"
-    mkdir ${root}/etc
+    [ ! -d ${root}/etc ] && mkdir ${root}/etc
 
     ${scriptsDir}/installXray.sh install ${root}/apps/xray || { echo "Install xray failed!"; exit 1; }
 
