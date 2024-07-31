@@ -11,7 +11,6 @@ else
     logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
-source "${this}/config.sh"
 
 export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -109,6 +108,7 @@ fi
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
 ###############################################################################
+source "${this}/config.sh"
 _need(){
     local cmd=${1}
     if ! command -v $cmd >/dev/null 2>&1;then
@@ -119,9 +119,16 @@ _need(){
 
 install() {
     _need iptables
+
+    # yaml2json.py need python3
+    _need python3
+    _need pip3
+
+    pip3 install pyyaml
+    pip3 install jinja2
+
     _run "mkdir ${root}/etc"
     _run "${scriptsDir}/installXray.sh install ${root}/apps/xray" || { echo "Install xray failed!"; exit 1; }
-    _run "${scriptsDir}/installGenfrontend.sh install ${root}/apps" || { echo "Install genfrontend failed!"; exit 1; }
 
     _addgroup
 

@@ -11,7 +11,6 @@ else
     logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
-source ${this}/../config.sh || { echo "Source config.sh failed"; exit 1; }
 export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 user="${SUDO_USER:-$(whoami)}"
@@ -165,9 +164,16 @@ fi
 # write your code below (just define function[s])
 # function is hidden when begin with '_'
 ###############################################################################
+source ${this}/../config.sh || { echo "Source config.sh failed"; exit 1; }
 beginCron="#begin v2relay cron"
 endCron="#end v2relay cron"
 clashGroup=clash
+
+# yaml2json.py need python3
+if ! command -v python3 >/dev/null 2>&1;then
+    echo "Need python3"
+    exit 1
+fi
 
 add(){
     local name=${1:?'missing name'}
@@ -183,16 +189,22 @@ add(){
     echo "+ No ${name},create it..."
 
     # copy and edit config.yaml
-    cp ${appsDir}/genfrontend/config.yaml ${etcDir}/${name}.yaml
+    # cp ${appsDir}/genfrontend/config.yaml ${etcDir}/${name}.yaml
+    cp ${convertDir}/config.yaml ${etcDir}/${name}.yaml
     $ed ${etcDir}/${name}.yaml
     _genServiceFile ${name}
 }
 
 _genServiceFile(){
+
     local name=${1:?'missing config name'}
     # genfrontend ${name}.json
     echo "+ Generate ${name}.json from ${name}.yaml"
-    _run "(${appsDir}/genfrontend/genfrontend -t ${appsDir}/genfrontend/frontendTemplate -c ${etcDir}/${name}.yaml -o ${etcDir}/${name}.json)" || { echo "${RED}failed!"; exit 1; }
+    # _run "(${appsDir}/genfrontend/genfrontend -t ${appsDir}/genfrontend/frontendTemplate -c ${etcDir}/${name}.yaml -o ${etcDir}/${name}.json)" || { echo "${RED}failed!"; exit 1; }
+    
+    cd ${convertDir}
+    python3 yaml2json.py --template tmpl --config ${etcDir}/${name}.yaml --output ${etcDir}/${name}.json || { echo "${RED}failed!"; exit 1; }
+    cd -
 
     local start_pre="${binDir}/xray.sh _start_pre ${name}"
     local start="${appsDir}/xray/xray run -c ${etcDir}/${name}.json"
@@ -291,10 +303,10 @@ _start_pre(){
         exit 1
     fi
 
-    if [ ! -e ${appsDir}/genfrontend/genfrontend ];then
-        echo "Error: no genfrontend found!"
-        exit 1
-    fi
+    # if [ ! -e ${appsDir}/genfrontend/genfrontend ];then
+    #     echo "Error: no genfrontend found!"
+    #     exit 1
+    # fi
 
     # check config file(json)
     if [ ! -e "${etcDir}/${configName}.json" ];then

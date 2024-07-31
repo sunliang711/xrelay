@@ -14,3 +14,5 @@ templateDir=${root}/template
 etcDir=${root}/etc
 binDir=${root}/bin
 appsDir=${root}/apps
+convertDir=${root}/convert
+clashGroup=clash

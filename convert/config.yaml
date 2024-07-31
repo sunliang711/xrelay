@@ -1,0 +1,93 @@
+# user: clashsub时传递的url参数,区分不同的订阅者
+# tag: frontend中使用的tag，用作traffic monitor
+# 格式为 type:port:remark
+# clashsub中也使用tag，作为返回的proxy的user
+# server clashsub中使用，作为服务器地址,可选，clashsub中有默认值
+# sub: clashsub订阅时只返回为true的元素
+
+# user: clashsub
+# tag: clashsub frontend
+# server: clashsub
+# sub: clashsub
+inbounds:
+  config:
+    loglevel: info
+    logfile: /tmp/xray711.log
+
+  shadowsocks:
+    - user: nicof
+      tag: "ss:4000:nicof"
+      server: 10.1.2.245
+      cipher: aes-256-gcm
+      password: 90Ad!23
+      udp: true
+      sub: true
+
+  vmess:
+    # begin server 1
+    - user: nicof
+      tag: "vmess:4010:nicof"
+      server: 10.1.2.245
+      cipher: auto
+      uuid: e2791dbb-f350-4a71-998a-da3b184a1cef
+      alterId: 64
+      network: ws
+      sub: true
+
+  socks5:
+    # begin server 1
+    - user: eagle
+      tag: "socks5:4020:noauth"
+      server: 10.1.2.245
+      udp: true
+      auth: noauth
+      sub: true
+    - user: eagle
+      tag: "socks5:4021:auth"
+      server: 10.1.2.245
+      udp: true
+      auth: password
+      username: usersocks5
+      password: usernopasssocks5
+      sub: true
+    # end server 1
+
+  http:
+    # begin server 1
+    - user: eagle
+      tag: "http:4030:noauth"
+      server: 10.1.2.245
+      sub: true
+    - user: eagle
+      tag: "http:4031:auth"
+      server: 10.1.2.245
+      username: user2
+      password: usernopass2
+      sub: true
+    # end server 1
+
+  # special outbound
+  outbound:
+    # # protocol: socks or http
+    protocol: socks
+    server: localhost
+    port: 7891
+    # # auth: noauth or password
+    # auth: noauth
+    # username: xx
+    # password: yy
+
+    # # protocol: vless
+    # protocol: vless
+    # server: trust.xyz
+    # port: 443
+    # uuid: 872b6a5f-d059-4410-b6e4-caef5530aa7b
+    # flow: xtls-rprx-direct
+    # encryption: none
+    # level: 0
+    # network: tcp
+    # security: xtls
+
+    # # protocol: file
+    # protocol: file
+    # file: vless

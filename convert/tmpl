@@ -1,0 +1,158 @@
+{
+    "log": {
+        "access": "{{logfile}}",
+        "error": "{{logfile}}",
+        "loglevel": "{{loglevel}}"
+    },
+    "inbounds": [
+        {%- for s in shadowsocks -%}
+        {%- if loop.index!=1 -%}
+        ,
+        {% endif %}
+            {
+                "tag":"{{s.tag}}",
+                "protocol": "shadowsocks",
+                "port": {{s.port}},
+                "settings": {
+                    "method": "{{s.cipher}}",
+                    "password": "{{s.password}}",
+                    "udp": {{s.udp | lower}},
+                    "level": 0,
+                    "ota": false
+                }
+            }
+        {%- endfor -%}
+        {%- for s in vmess -%}
+            ,{
+                "tag": "{{s.tag}}",
+                "port": {{s.port}},
+                "protocol": "vmess",
+                "settings": {
+                    "clients": [
+                        {
+                            "id": "{{s.uuid}}",
+                            "alterId": {{s.alterId}}
+                        }
+                    ]
+                },
+                "streamSettings": {
+                    "network": "{{s.network}}"
+                }
+            }
+        {%- endfor -%}
+        
+        {%- for s in http -%}
+            ,{
+                "tag": "{{s.tag}}",
+                "protocol": "http",
+                "port": {{s.port}},
+                "settings": {
+                    {%- if s.username -%}
+                        "accounts": [
+                            {
+                                "user": "{{s.username}}",
+                                "pass": "{{s.password}}"
+                            }
+                        ],
+                    {%- endif -%}
+                    "timeout": 0,
+                    "userLevel": 0,
+                    "allowTransparent": false
+                },
+                "sniffing": {
+                    "enabled": true,
+                    "destOverride": [
+                        "http",
+                        "tls"
+                    ]
+                }
+            }
+        {%- endfor -%}
+   
+        {%- for s in socks5 -%}
+            ,{
+                "tag":"{{s.tag}}",
+                "protocol": "socks",
+                "port": {{s.port}},
+                "settings": {
+                    "udp": {{s.udp | lower}},
+                    "auth": "{{s.auth}}",
+                    {%- if s.username -%}
+                    "accounts": [
+                        {
+                            "user": "{{s.username}}",
+                            "pass": "{{s.password}}"
+                        }
+                    ],
+                    {%- endif %}
+                    "userLevel": 0,
+                    "ip": "0.0.0.0"
+                },
+                "sniffing": {
+                    "enabled": true,
+                    "destOverride": [
+                        "http",
+                        "tls"
+                    ]
+                }
+            }
+        {%- endfor -%}
+    ],
+    "outbound": {
+        {%- if (outbound.protocol=="socks" or outbound.protocol=="http") -%}
+        "protocol": "{{outbound.protocol}}",
+        "settings": {
+            "servers": [
+                {
+                    "address": "{{outbound.server}}",
+                    "port": {{outbound.port}}
+                    {%- if outbound.auth=="password" -%}
+                    ,"users":[
+                        {
+                            "user":"{{outbound.username}}",
+                            "pass":"{{outbound.password}}"
+                        }
+                    ]
+                    {%- endif -%}
+                }
+            ]
+        },
+        "streamSettings": {
+            "sockopt": {
+                "note":"for transparent proxy",
+                "mark": 255
+            }
+        }
+
+        {%- elif outbound.protocol=="vless" %}
+        "protocol": "{{outbound.protocol}}",
+        "settings":{
+            "vnext":[
+                {
+                    "address":"{{outbound.server}}",
+                    "port": {{outbound.port}},
+                    "users": [
+                        {
+                            "id": "{{outbound.uuid}}",
+                            "flow": "{{outbound.flow}}",
+                            "encryption": "{{outbound.encryption}}",
+                            "level": {{outbound.level}}
+                        }
+                    ]
+                }
+            ]
+        },
+        "streamSettings":{
+            "network": "{{outbound.network}}",
+            "security": "{{outbound.security}}",
+            "xtlsSettings":{
+                "serverName": "{{outbound.server}}"
+            }
+        }
+        {%- elif outbound.protocol == "file" %}
+        {{outbound.file}}
+
+        {%- endif -%}
+    }
+
+}
