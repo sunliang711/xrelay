@@ -45,6 +45,12 @@ else
     fi
 fi
 
+_run(){
+    # only output stderr
+    cmd="$*"
+    (set -x; bash -c "${cmd}" >> ${logfile})
+}
+
 # available VARs: user, home, rootID
 # available functions: 
 #    _err(): print "$*" to stderror
