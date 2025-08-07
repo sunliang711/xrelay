@@ -47,7 +47,7 @@ _err() {
     echo "$*" >&2
 }
 
-_runAsRoot(){
+_runAsRoot2(){
     cmd="${*}"
     bash_c='bash -c'
     if [ "${EUID}" -ne "${rootID}" ];then
@@ -65,6 +65,40 @@ _runAsRoot(){
     fi
     # only output stderr
     (set -x; $bash_c "${cmd}" >> ${logfile} )
+}
+
+_runAsRoot() {
+    local run_as_root
+
+    # 判断当前是否是 root
+    if [ "$(id -u)" -eq 0 ]; then
+        run_as_root="bash -s"
+    elif command -v sudo >/dev/null 2>&1; then
+        run_as_root="sudo -E bash -s"
+    elif command -v su >/dev/null 2>&1; then
+        run_as_root="su -c 'bash -s'"
+    else
+        echo "Error: need sudo or su to run as root." >&2
+        return 1
+    fi
+
+    if [ -t 0 ]; then
+        # 交互式 shell：使用命令参数方式
+        if [ $# -eq 0 ]; then
+            echo "Usage: _runAsRootUniversal <command> [args...]" >&2
+            return 1
+        fi
+        echo "[Running as root]: $*"
+        if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+        else
+            sudo "$@"
+        fi
+    else
+        # 标准输入传入：执行多行脚本
+        echo "[Running script as root via stdin]"
+        $run_as_root
+    fi
 }
 
 rootID=0
@@ -140,7 +174,7 @@ function _addWatchPorts() {
             fi
 EOF
         )
-        _runAsRoot "${cmd}"
+        _runAsRoot <<<"${cmd}"
     done
 }
 
@@ -165,7 +199,7 @@ function _delWatchPorts() {
 EOF
         )
 
-        _runAsRoot "${cmd}"
+        _runAsRoot <<<"${cmd}"
     done
 }
 

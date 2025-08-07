@@ -210,16 +210,36 @@ _checkRoot() {
 }
 
 _runAsRoot() {
+    local run_as_root
+
+    # 判断当前是否是 root
     if [ "$(id -u)" -eq 0 ]; then
-        echo "Running as root: $*"
-        "$@"
+        run_as_root="bash -s"
+    elif command -v sudo >/dev/null 2>&1; then
+        run_as_root="sudo -E bash -s"
+    elif command -v su >/dev/null 2>&1; then
+        run_as_root="su -c 'bash -s'"
     else
-        if ! command -v sudo >/dev/null 2>&1; then
-            echo "Error: 'sudo' is required but not found." >&2
+        echo "Error: need sudo or su to run as root." >&2
+        return 1
+    fi
+
+    if [ -t 0 ]; then
+        # 交互式 shell：使用命令参数方式
+        if [ $# -eq 0 ]; then
+            echo "Usage: _runAsRootUniversal <command> [args...]" >&2
             return 1
         fi
-        echo "Using sudo: $*"
-        sudo "$@"
+        echo "[Running as root]: $*"
+        if [ "$(id -u)" -eq 0 ]; then
+            "$@"
+        else
+            sudo "$@"
+        fi
+    else
+        # 标准输入传入：执行多行脚本
+        echo "[Running script as root via stdin]"
+        $run_as_root
     fi
 }
 
