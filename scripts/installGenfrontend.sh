@@ -109,7 +109,7 @@ fi
 ###############################################################################
 install(){
     # local link="https://gitee.com/sunliang711/genfrontend/raw/master/install.sh"
-    local link="https://raw.githubusercontent.com/sunliang711/genfrontend/master/install.sh"
+    local link="https://raw.githubusercontent.com/sunliang711/genfrontend/master/new-install.sh"
     curl -fsS "${link}" | bash -s install $1
 }
 
