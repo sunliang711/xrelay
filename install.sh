@@ -11,8 +11,6 @@ else
     logfile="/tmp/$(basename ${BASH_SOURCE}).log"
 fi
 
-source "${this}/config.sh"
-
 export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 user="${SUDO_USER:-$(whoami)}"
@@ -116,6 +114,8 @@ _need(){
         exit 1
     fi
 }
+
+source "${this}/config.sh"
 
 install() {
     _need iptables
