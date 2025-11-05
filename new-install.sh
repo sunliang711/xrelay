@@ -463,7 +463,7 @@ get_release_link(){
   done
   link=$(echo $link0 | cut -d '"' -f 4)
   log INFO "link: ${link}"
-  
+
   export link
 }
 
@@ -485,6 +485,8 @@ install() {
   _addgroup
   echo "Add ${binDir} to PATH"
 }
+
+clashGroup=clash
 
 _addgroup(){
   if getent group ${clashGroup} >/dev/null 2>&1;then

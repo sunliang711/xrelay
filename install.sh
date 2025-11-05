@@ -129,6 +129,8 @@ install() {
     echo "Add ${binDir} to PATH"
 }
 
+clashGroup=clash
+
 _addgroup(){
     set -e
     if getent group ${clashGroup} >/dev/null 2>&1;then
