@@ -436,7 +436,7 @@ config(){
 
     if [ "${pre}" != "${post}" ];then
         echo "Config file changed,generate new config and restart service..."
-        start ${configName}
+        restart ${configName}
     fi
 }
 
