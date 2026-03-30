@@ -4,9 +4,10 @@
 Steps performed by ``install``:
   1. Download xray release via download.py → install binary to /usr/local/bin
   2. Install genfrontend (via existing shell script)
-  3. Create the ``clash`` system group (if absent)
-  4. Symlink bin/xray.py → /usr/local/bin/xray.py
-  5. Generate and install the systemd template unit xray@.service
+  3. Create yaml2json virtualenv and install its Python dependencies
+  4. Create the ``clash`` system group (if absent)
+  5. Symlink bin/xray.py → /usr/local/bin/xray.py
+  6. Generate and install the systemd template unit xray@.service
 """
 
 import argparse
@@ -25,6 +26,10 @@ XRAY_PY_DEST = "/usr/local/bin/xray.py"
 DOWNLOAD_PY = os.path.join(PROJECT_ROOT, "download.py")
 APPS_DIR = os.path.join(PROJECT_ROOT, "apps")
 ETC_DIR = os.path.join(PROJECT_ROOT, "etc")
+YAML2JSON_DIR = os.path.join(PROJECT_ROOT, "yaml2json")
+YAML2JSON_VENV_DIR = os.path.join(YAML2JSON_DIR, "venv")
+YAML2JSON_PIP = os.path.join(YAML2JSON_VENV_DIR, "bin", "pip")
+YAML2JSON_REQUIREMENTS = os.path.join(YAML2JSON_DIR, "requirments.txt")
 TEMPLATE_SRC = os.path.join(PROJECT_ROOT, "template", "xray@.service")
 SYSTEMD_DIR = "/etc/systemd/system"
 CLASH_GROUP = "clash"
@@ -102,6 +107,25 @@ def _install_genfrontend():
         subprocess.run(["bash", script, "install", APPS_DIR], check=True)
     else:
         print("Warning: genfrontend install script not found, skipping.")
+
+
+def _install_yaml2json_env():
+    print("\n=== Installing yaml2json dependencies ===")
+    if not os.path.isdir(YAML2JSON_DIR):
+        sys.exit(f"Error: yaml2json directory not found: {YAML2JSON_DIR}")
+    if not os.path.exists(YAML2JSON_REQUIREMENTS):
+        sys.exit(f"Error: requirements file not found: {YAML2JSON_REQUIREMENTS}")
+
+    subprocess.run(
+        [sys.executable, "-m", "venv", YAML2JSON_VENV_DIR],
+        check=True,
+        cwd=YAML2JSON_DIR,
+    )
+    subprocess.run(
+        [YAML2JSON_PIP, "install", "-r", YAML2JSON_REQUIREMENTS],
+        check=True,
+        cwd=YAML2JSON_DIR,
+    )
 
 
 def _add_group():
@@ -203,6 +227,7 @@ def main() -> int:
 
         _install_xray()
         _install_genfrontend()
+        _install_yaml2json_env()
         _add_group()
         _install_xray_py()
         _install_systemd_template()
@@ -214,6 +239,7 @@ Installation complete!
   xray binary      : {XRAY_BIN_DEST}
   geo data         : {XRAY_DAT_DIR}
   xray.py CLI      : {XRAY_PY_DEST}
+  yaml2json venv   : {YAML2JSON_VENV_DIR}
   config directory  : {ETC_DIR}
   systemd template  : {SYSTEMD_DIR}/xray@.service
 

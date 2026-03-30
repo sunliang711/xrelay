@@ -9,8 +9,9 @@ from .config import (
     ETC_DIR,
     APPS_DIR,
     XRAY_BIN,
-    GENFRONTEND_BIN,
     GENFRONTEND_TPL,
+    YAML2JSON_PYTHON,
+    YAML2JSON_SCRIPT,
     SERVICE_NAME_TPL,
 )
 from .log import log, ERROR, INFO, SUCCESS
@@ -27,25 +28,42 @@ def _svc(name: str) -> str:
 
 
 def gen_config(name: str) -> bool:
-    """Run genfrontend to produce <name>.json from <name>.yaml."""
+    """Run yaml2json to produce <name>.json from <name>.yaml."""
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
     json_file = os.path.join(ETC_DIR, f"{name}.json")
+    template_dir = os.path.dirname(GENFRONTEND_TPL)
+    template_name = os.path.basename(GENFRONTEND_TPL)
 
     if not os.path.exists(yaml_file):
         log(ERROR, f"Config not found: {yaml_file}")
         return False
-    if not os.path.exists(GENFRONTEND_BIN):
-        log(ERROR, f"genfrontend not found: {GENFRONTEND_BIN}")
+    if not os.path.exists(YAML2JSON_SCRIPT):
+        log(ERROR, f"yaml2json not found: {YAML2JSON_SCRIPT}")
+        return False
+    if not os.path.exists(YAML2JSON_PYTHON):
+        log(ERROR, f"yaml2json venv not found: {YAML2JSON_PYTHON}")
+        return False
+    if not os.path.exists(GENFRONTEND_TPL):
+        log(ERROR, f"Template not found: {GENFRONTEND_TPL}")
         return False
 
     log(INFO, f"Generate {name}.json from {name}.yaml")
     result = subprocess.run(
-        [GENFRONTEND_BIN, "-t", GENFRONTEND_TPL,
-         "-c", yaml_file, "-o", json_file],
+        [
+            YAML2JSON_PYTHON,
+            YAML2JSON_SCRIPT,
+            "--template",
+            template_name,
+            "--config",
+            yaml_file,
+            "--output",
+            json_file,
+        ],
         capture_output=True, text=True,
+        cwd=template_dir,
     )
     if result.returncode != 0:
-        log(ERROR, f"genfrontend failed: {result.stderr}")
+        log(ERROR, f"yaml2json failed: {result.stderr}")
         return False
 
     log(SUCCESS, f"Generated {json_file}")
@@ -169,9 +187,6 @@ def cmd_start_pre(name: str) -> int:
 
     if not os.path.exists(XRAY_BIN):
         print(f"Error: xray not found at {XRAY_BIN}", file=sys.stderr)
-        return 1
-    if not os.path.exists(GENFRONTEND_BIN):
-        print(f"Error: genfrontend not found at {GENFRONTEND_BIN}", file=sys.stderr)
         return 1
 
     json_file = os.path.join(ETC_DIR, f"{name}.json")
