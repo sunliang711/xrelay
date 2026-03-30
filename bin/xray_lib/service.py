@@ -9,9 +9,9 @@ from .config import (
     ETC_DIR,
     APPS_DIR,
     XRAY_BIN,
-    GENFRONTEND_TPL,
     YAML2JSON_PYTHON,
     YAML2JSON_SCRIPT,
+    YAML2JSON_TEMPLATE,
     SERVICE_NAME_TPL,
 )
 from .log import log, ERROR, INFO, SUCCESS
@@ -31,8 +31,8 @@ def gen_config(name: str) -> bool:
     """Run yaml2json to produce <name>.json from <name>.yaml."""
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
     json_file = os.path.join(ETC_DIR, f"{name}.json")
-    template_dir = os.path.dirname(GENFRONTEND_TPL)
-    template_name = os.path.basename(GENFRONTEND_TPL)
+    template_dir = os.path.dirname(YAML2JSON_TEMPLATE)
+    template_name = os.path.basename(YAML2JSON_TEMPLATE)
 
     if not os.path.exists(yaml_file):
         log(ERROR, f"Config not found: {yaml_file}")
@@ -43,8 +43,8 @@ def gen_config(name: str) -> bool:
     if not os.path.exists(YAML2JSON_PYTHON):
         log(ERROR, f"yaml2json venv not found: {YAML2JSON_PYTHON}")
         return False
-    if not os.path.exists(GENFRONTEND_TPL):
-        log(ERROR, f"Template not found: {GENFRONTEND_TPL}")
+    if not os.path.exists(YAML2JSON_TEMPLATE):
+        log(ERROR, f"Template not found: {YAML2JSON_TEMPLATE}")
         return False
 
     log(INFO, f"Generate {name}.json from {name}.yaml")

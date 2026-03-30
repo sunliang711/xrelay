@@ -3,11 +3,10 @@
 
 Steps performed by ``install``:
   1. Download xray release via download.py → install binary to /usr/local/bin
-  2. Install genfrontend (via existing shell script)
-  3. Create yaml2json virtualenv and install its Python dependencies
-  4. Create the ``clash`` system group (if absent)
-  5. Symlink bin/xray.py → /usr/local/bin/xray.py
-  6. Generate and install the systemd template unit xray@.service
+  2. Create yaml2json virtualenv and install its Python dependencies
+  3. Create the ``clash`` system group (if absent)
+  4. Symlink bin/xray.py → /usr/local/bin/xray.py
+  5. Generate and install the systemd template unit xray@.service
 """
 
 import argparse
@@ -98,15 +97,6 @@ def _install_xray():
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
     print("xray installed successfully.")
-
-
-def _install_genfrontend():
-    print("\n=== Installing genfrontend ===")
-    script = os.path.join(PROJECT_ROOT, "scripts", "installGenfrontend.sh")
-    if os.path.exists(script):
-        subprocess.run(["bash", script, "install", APPS_DIR], check=True)
-    else:
-        print("Warning: genfrontend install script not found, skipping.")
 
 
 def _install_yaml2json_env():
@@ -226,7 +216,6 @@ def main() -> int:
         os.makedirs(ETC_DIR, exist_ok=True)
 
         _install_xray()
-        _install_genfrontend()
         _install_yaml2json_env()
         _add_group()
         _install_xray_py()
