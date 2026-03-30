@@ -1,0 +1,19 @@
+[Unit]
+Description=xray service (%i)
+
+[Service]
+Type=simple
+
+ExecStartPre=<XRAY_PY> _start_pre %i
+ExecStart=<XRAY_BIN> run -c <ETC_DIR>/%i.json
+ExecStartPost=-<XRAY_PY> _start_post %i
+ExecStopPost=-<XRAY_PY> _stop_post %i
+
+User=root
+Group=<GROUP>
+WorkingDirectory=/usr/local/bin
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
