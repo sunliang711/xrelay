@@ -19,6 +19,7 @@ import sys
 PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
 
 XRAY_BIN_DEST = "/usr/local/bin/xray"
+XRAY_DAT_DIR = "/usr/local/share/xray"
 XRAY_PY_SRC = os.path.join(PROJECT_ROOT, "bin", "xray.py")
 XRAY_PY_DEST = "/usr/local/bin/xray.py"
 DOWNLOAD_PY = os.path.join(PROJECT_ROOT, "download.py")
@@ -62,11 +63,14 @@ def _install_xray():
         check=True,
     )
 
+    # download.py --extract puts files into a sub-directory (e.g. Xray-linux-64/)
+    # ZIP extraction does not preserve Unix permissions, so we look for the file
+    # by name only (no X_OK check) and set the permission after copying.
     xray_binary = None
     for root, _dirs, files in os.walk(tmp_dir):
         if "xray" in files:
             candidate = os.path.join(root, "xray")
-            if os.access(candidate, os.X_OK):
+            if os.path.isfile(candidate):
                 xray_binary = candidate
                 break
 
@@ -75,15 +79,20 @@ def _install_xray():
 
     _run_root("cp", xray_binary, XRAY_BIN_DEST)
     _run_root("chmod", "755", XRAY_BIN_DEST)
+    print(f"  xray → {XRAY_BIN_DEST}")
 
+    # geo data files go to /usr/local/share/xray/
     xray_dir = os.path.dirname(xray_binary)
+    _run_root("mkdir", "-p", XRAY_DAT_DIR)
     for dat in ("geoip.dat", "geosite.dat"):
         src = os.path.join(xray_dir, dat)
         if os.path.exists(src):
-            _run_root("cp", src, os.path.join("/usr/local/bin", dat))
+            dest = os.path.join(XRAY_DAT_DIR, dat)
+            _run_root("cp", src, dest)
+            print(f"  {dat} → {dest}")
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
-    print(f"xray installed → {XRAY_BIN_DEST}")
+    print("xray installed successfully.")
 
 
 def _install_genfrontend():
@@ -164,10 +173,8 @@ def _uninstall():
         if os.path.exists(p) or os.path.islink(p):
             _run_root("rm", "-f", p)
 
-    for dat in ("geoip.dat", "geosite.dat"):
-        p = os.path.join("/usr/local/bin", dat)
-        if os.path.exists(p):
-            _run_root("rm", "-f", p)
+    if os.path.isdir(XRAY_DAT_DIR):
+        _run_root("rm", "-rf", XRAY_DAT_DIR)
 
     for sub in ("genfrontend", "xray"):
         d = os.path.join(APPS_DIR, sub)
@@ -205,6 +212,7 @@ def main() -> int:
 Installation complete!
 
   xray binary      : {XRAY_BIN_DEST}
+  geo data         : {XRAY_DAT_DIR}
   xray.py CLI      : {XRAY_PY_DEST}
   config directory  : {ETC_DIR}
   systemd template  : {SYSTEMD_DIR}/xray@.service
