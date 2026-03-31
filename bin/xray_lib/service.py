@@ -7,7 +7,7 @@ import sys
 
 from .config import (
     ETC_DIR,
-    APPS_DIR,
+    TEMPLATE_DIR,
     XRAY_BIN,
     YAML2JSON_PYTHON,
     YAML2JSON_SCRIPT,
@@ -81,7 +81,7 @@ def cmd_add(name: str) -> int:
         log(ERROR, f"{name} already exists")
         return 1
 
-    template_yaml = os.path.join(APPS_DIR, "genfrontend", "config.yaml")
+    template_yaml = os.path.join(TEMPLATE_DIR, "config.yaml")
     if os.path.exists(template_yaml):
         shutil.copy2(template_yaml, yaml_file)
     else:

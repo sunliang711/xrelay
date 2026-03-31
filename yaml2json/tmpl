@@ -1,12 +1,13 @@
 {
     "log": {
-        "access": "{{logfile}}",
-        "error": "{{logfile}}",
+        "access": "{{log_access}}",
+        "error": "{{log_error}}",
         "loglevel": "{{loglevel}}"
     },
     "inbounds": [
+        {%- set ns = namespace(first=true) -%}
         {%- for s in shadowsocks -%}
-        {%- if loop.index!=1 -%}
+        {%- if not ns.first -%}
         ,
         {% endif %}
             {
@@ -17,44 +18,50 @@
                     "method": "{{s.cipher}}",
                     "password": "{{s.password}}",
                     "udp": {{s.udp | lower}},
+                    "network": "tcp,udp",
                     "level": 0,
                     "ota": false
                 }
             }
+        {%- set ns.first = false -%}
         {%- endfor -%}
-        {%- for s in vmess -%}
-            ,{
-                "tag": "{{s.tag}}",
-                "port": {{s.port}},
-                "protocol": "vmess",
-                "settings": {
-                    "clients": [
-                        {
-                            "id": "{{s.uuid}}",
-                            "alterId": {{s.alterId}}
-                        }
-                    ]
-                },
-                "streamSettings": {
-                    "network": "{{s.network}}"
-                }
+        {%- if not ns.first -%},{%- endif %}
+        {
+            "tag": "vmess",
+            "port": {{vmess_port}},
+            "protocol": "vmess",
+            "settings": {
+                "clients": [
+                {%- for s in vmess -%}
+                    {%- if loop.index != 1 -%},{%- endif %}
+                    {
+                        "email": "{{s.tag}}",
+                        "id": "{{s.uuid}}",
+                        "alterId": {{s.alterId}}
+                    }
+                {%- endfor %}
+                ]
+            },
+            "streamSettings": {
+                "network": "{{vmess_network}}"
             }
-        {%- endfor -%}
-        
+        }
+        {%- set ns.first = false -%}
         {%- for s in http -%}
-            ,{
+            {%- if not ns.first -%},{%- endif %}
+            {
                 "tag": "{{s.tag}}",
                 "protocol": "http",
                 "port": {{s.port}},
                 "settings": {
-                    {%- if s.username -%}
+                    {%- if s.username %}
                         "accounts": [
                             {
                                 "user": "{{s.username}}",
                                 "pass": "{{s.password}}"
                             }
                         ],
-                    {%- endif -%}
+                    {%- endif %}
                     "timeout": 0,
                     "userLevel": 0,
                     "allowTransparent": false
@@ -67,17 +74,18 @@
                     ]
                 }
             }
+            {%- set ns.first = false -%}
         {%- endfor -%}
-   
         {%- for s in socks5 -%}
-            ,{
+            {%- if not ns.first -%},{%- endif %}
+            {
                 "tag":"{{s.tag}}",
                 "protocol": "socks",
                 "port": {{s.port}},
                 "settings": {
                     "udp": {{s.udp | lower}},
                     "auth": "{{s.auth}}",
-                    {%- if s.username -%}
+                    {%- if s.username %}
                     "accounts": [
                         {
                             "user": "{{s.username}}",
@@ -96,24 +104,25 @@
                     ]
                 }
             }
-        {%- endfor -%}
+            {%- set ns.first = false -%}
+        {%- endfor %}
     ],
     "outbounds": [{
-        {%- if (outbound.protocol=="socks" or outbound.protocol=="http") -%}
+        {%- if (outbound.protocol=="socks" or outbound.protocol=="http") %}
         "protocol": "{{outbound.protocol}}",
         "settings": {
             "servers": [
                 {
                     "address": "{{outbound.server}}",
                     "port": {{outbound.port}}
-                    {%- if outbound.auth=="password" -%}
+                    {%- if outbound.auth=="password" %}
                     ,"users":[
                         {
                             "user":"{{outbound.username}}",
                             "pass":"{{outbound.password}}"
                         }
                     ]
-                    {%- endif -%}
+                    {%- endif %}
                 }
             ]
         },
@@ -152,7 +161,28 @@
         {%- elif outbound.protocol == "file" %}
         {{outbound.file}}
 
-        {%- endif -%}
-    }]
-
+        {%- endif %}
+    }],
+    "api": {
+        "tag": "api",
+        "listen": "127.0.0.1:{{api_port}}",
+        "services": [
+            "StatsService"
+        ]
+    },
+    "stats": {},
+    "policy": {
+        "levels": {
+            "0": {
+                "statsUserUplink": true,
+                "statsUserDownlink": true
+            }
+        },
+        "system": {
+            "statsInboundUplink": true,
+            "statsInboundDownlink": true,
+            "statsOutboundUplink": true,
+            "statsOutboundDownlink": true
+        }
+    }
 }

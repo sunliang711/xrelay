@@ -190,7 +190,7 @@ def _uninstall():
     if os.path.isdir(XRAY_DAT_DIR):
         _run_root("rm", "-rf", XRAY_DAT_DIR)
 
-    for sub in ("genfrontend", "xray"):
+    for sub in ("xray",):
         d = os.path.join(APPS_DIR, sub)
         if os.path.isdir(d):
             shutil.rmtree(d)

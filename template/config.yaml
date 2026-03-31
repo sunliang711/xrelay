@@ -12,8 +12,10 @@
 inbounds:
   config:
     loglevel: info
-    logfile: /tmp/xray711.log
-    api_port: 18080
+    # 日志文件位置，空串时输出到stdout stderr
+    logfile: ""
+    log_access: ""
+    log_error: ""
     # 下面vmess共用的端口和网络
     vmess_port: 4110
     vmess_network: raw
@@ -21,7 +23,7 @@ inbounds:
 
   shadowsocks:
     - user: nicof
-      tag: "ss:4000:nicofff"
+      tag: "ss:4000:nicof"
       server: 10.1.2.245
       cipher: aes-256-gcm
       password: 90Ad!23
@@ -35,8 +37,7 @@ inbounds:
       server: 10.1.2.245
       cipher: auto
       uuid: e2791dbb-f350-4a71-998a-da3b184a1cef
-      alterId: 64
-      network: ws
+      alterId: 0
       sub: true
 
   socks5:
