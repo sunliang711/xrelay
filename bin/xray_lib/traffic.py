@@ -14,8 +14,6 @@ import sys
 import time
 from datetime import datetime
 
-import yaml
-
 from .config import ETC_DIR, TRAFFIC_DIR, XRAY_BIN
 from .utils import get_editor
 
@@ -23,15 +21,20 @@ from .utils import get_editor
 
 
 def _get_api_port(config_name: str) -> int:
-    """Read api_port from the YAML config (source of truth)."""
-    yaml_file = os.path.join(ETC_DIR, f"{config_name}.yaml")
-    if not os.path.exists(yaml_file):
+    """Read api_port from the generated JSON config (api.listen field).
+
+    The JSON contains:  "api": {"listen": "127.0.0.1:<port>", ...}
+    """
+    json_file = os.path.join(ETC_DIR, f"{config_name}.json")
+    if not os.path.exists(json_file):
         return 0
-    with open(yaml_file) as f:
-        data = yaml.safe_load(f)
     try:
-        return int(data["inbounds"]["config"]["api_port"])
-    except (KeyError, TypeError, ValueError):
+        with open(json_file) as f:
+            data = json.load(f)
+        listen = data["api"]["listen"]  # e.g. "127.0.0.1:18080"
+        _, port_str = listen.rsplit(":", 1)
+        return int(port_str)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return 0
 
 
