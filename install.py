@@ -15,6 +15,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 
 PROJECT_ROOT = os.path.dirname(os.path.realpath(__file__))
 
@@ -59,44 +60,45 @@ def _require_commands(*cmds):
 
 def _install_xray():
     print("\n=== Installing xray ===")
-    tmp_dir = "/tmp/xray-install"
-    os.makedirs(tmp_dir, exist_ok=True)
+    tmp_dir = tempfile.mkdtemp(prefix="xray-install-")
 
-    subprocess.run(
-        [sys.executable, DOWNLOAD_PY, "xray", "-o", tmp_dir, "--extract"],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [sys.executable, DOWNLOAD_PY, "xray", "-o", tmp_dir, "--extract"],
+            check=True,
+        )
 
-    # download.py --extract puts files into a sub-directory (e.g. Xray-linux-64/)
-    # ZIP extraction does not preserve Unix permissions, so we look for the file
-    # by name only (no X_OK check) and set the permission after copying.
-    xray_binary = None
-    for root, _dirs, files in os.walk(tmp_dir):
-        if "xray" in files:
-            candidate = os.path.join(root, "xray")
-            if os.path.isfile(candidate):
-                xray_binary = candidate
-                break
+        # download.py --extract puts files into a sub-directory (e.g. Xray-linux-64/)
+        # ZIP extraction does not preserve Unix permissions, so we look for the file
+        # by name only (no X_OK check) and set the permission after copying.
+        xray_binary = None
+        for root, _dirs, files in os.walk(tmp_dir):
+            if "xray" in files:
+                candidate = os.path.join(root, "xray")
+                if os.path.isfile(candidate):
+                    xray_binary = candidate
+                    break
 
-    if not xray_binary:
-        sys.exit("Error: xray binary not found after extraction")
+        if not xray_binary:
+            sys.exit("Error: xray binary not found after extraction")
 
-    _run_root("cp", xray_binary, XRAY_BIN_DEST)
-    _run_root("chmod", "755", XRAY_BIN_DEST)
-    print(f"  xray → {XRAY_BIN_DEST}")
+        _run_root("cp", xray_binary, XRAY_BIN_DEST)
+        _run_root("chmod", "755", XRAY_BIN_DEST)
+        print(f"  xray → {XRAY_BIN_DEST}")
 
-    # geo data files go to /usr/local/share/xray/
-    xray_dir = os.path.dirname(xray_binary)
-    _run_root("mkdir", "-p", XRAY_DAT_DIR)
-    for dat in ("geoip.dat", "geosite.dat"):
-        src = os.path.join(xray_dir, dat)
-        if os.path.exists(src):
-            dest = os.path.join(XRAY_DAT_DIR, dat)
-            _run_root("cp", src, dest)
-            print(f"  {dat} → {dest}")
+        # geo data files go to /usr/local/share/xray/
+        xray_dir = os.path.dirname(xray_binary)
+        _run_root("mkdir", "-p", XRAY_DAT_DIR)
+        for dat in ("geoip.dat", "geosite.dat"):
+            src = os.path.join(xray_dir, dat)
+            if os.path.exists(src):
+                dest = os.path.join(XRAY_DAT_DIR, dat)
+                _run_root("cp", src, dest)
+                print(f"  {dat} → {dest}")
 
-    shutil.rmtree(tmp_dir, ignore_errors=True)
-    print("xray installed successfully.")
+        print("xray installed successfully.")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _check_venv_available():
@@ -172,8 +174,8 @@ def _install_systemd_template():
         .replace("<GROUP>", CLASH_GROUP)
     )
 
-    tmp = "/tmp/xray@.service"
-    with open(tmp, "w") as f:
+    fd, tmp = tempfile.mkstemp(prefix="xray-service-", suffix=".service")
+    with os.fdopen(fd, "w") as f:
         f.write(content)
 
     dest = os.path.join(SYSTEMD_DIR, "xray@.service")
@@ -207,10 +209,9 @@ def _uninstall():
     if os.path.isdir(XRAY_DAT_DIR):
         _run_root("rm", "-rf", XRAY_DAT_DIR)
 
-    for sub in ("xray",):
-        d = os.path.join(APPS_DIR, sub)
-        if os.path.isdir(d):
-            shutil.rmtree(d)
+    for path in (os.path.join(APPS_DIR, "xray"), os.path.join(APPS_DIR, "net-traffic")):
+        if os.path.isdir(path):
+            shutil.rmtree(path)
 
     print("Uninstall complete.")
 

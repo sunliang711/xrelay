@@ -1,6 +1,7 @@
 """Service management operations (add / start / stop / restart / remove …)."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -12,15 +13,27 @@ from .config import (
     XRAY_BIN,
     YAML2JSON_PYTHON,
     YAML2JSON_SCRIPT,
-    YAML2JSON_TEMPLATE,
 )
 from .cron import add_cron, del_cron
 from .log import ERROR, INFO, SUCCESS, log
-from .utils import ensure_dir, get_editor, run_as_root
+from .utils import build_editor_cmd, ensure_dir, run_as_root
 
 
 def _svc(name: str) -> str:
     return SERVICE_NAME_TPL.format(name)
+
+
+def _validate_name(name: str) -> bool:
+    if not name:
+        log(ERROR, "Instance name is required")
+        return False
+    if not re.fullmatch(r"[A-Za-z0-9_.@-]+", name):
+        log(
+            ERROR,
+            "Instance name may only contain letters, numbers, dot, underscore, dash, and @",
+        )
+        return False
+    return True
 
 
 # ── Config generation ────────────────────────────────────────────────────
@@ -30,8 +43,6 @@ def gen_config(name: str) -> bool:
     """Run yaml2json to produce <name>.json from <name>.yaml."""
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
     json_file = os.path.join(ETC_DIR, f"{name}.json")
-    template_dir = os.path.dirname(YAML2JSON_TEMPLATE)
-    template_name = os.path.basename(YAML2JSON_TEMPLATE)
 
     if not os.path.exists(yaml_file):
         log(ERROR, f"Config not found: {yaml_file}")
@@ -42,17 +53,12 @@ def gen_config(name: str) -> bool:
     if not os.path.exists(YAML2JSON_PYTHON):
         log(ERROR, f"yaml2json venv not found: {YAML2JSON_PYTHON}")
         return False
-    if not os.path.exists(YAML2JSON_TEMPLATE):
-        log(ERROR, f"Template not found: {YAML2JSON_TEMPLATE}")
-        return False
 
     log(INFO, f"Generate {name}.json from {name}.yaml")
     result = subprocess.run(
         [
             YAML2JSON_PYTHON,
             YAML2JSON_SCRIPT,
-            "--template",
-            template_name,
             "--config",
             yaml_file,
             "--output",
@@ -60,10 +66,10 @@ def gen_config(name: str) -> bool:
         ],
         capture_output=True,
         text=True,
-        cwd=template_dir,
     )
     if result.returncode != 0:
-        log(ERROR, f"yaml2json failed: {result.stderr}")
+        error = result.stderr.strip() or result.stdout.strip() or "unknown error"
+        log(ERROR, f"yaml2json failed: {error}")
         return False
 
     log(SUCCESS, f"Generated {json_file}")
@@ -74,6 +80,9 @@ def gen_config(name: str) -> bool:
 
 
 def cmd_add(name: str) -> int:
+    if not _validate_name(name):
+        return 1
+
     ensure_dir(ETC_DIR)
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
 
@@ -88,7 +97,10 @@ def cmd_add(name: str) -> int:
         with open(yaml_file, "w") as f:
             f.write("# xray config\n")
 
-    subprocess.run([get_editor(), yaml_file])
+    edit_result = subprocess.run(build_editor_cmd(yaml_file))
+    if edit_result.returncode != 0:
+        log(ERROR, f"Editor exited with code {edit_result.returncode}")
+        return 1
 
     if not gen_config(name):
         return 1
@@ -111,13 +123,19 @@ def cmd_list() -> int:
 
 
 def cmd_config(name: str) -> int:
+    if not _validate_name(name):
+        return 1
+
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
     if not os.path.exists(yaml_file):
         log(ERROR, f"No such config: {name}")
         return 1
 
     mtime_before = os.path.getmtime(yaml_file)
-    subprocess.run([get_editor(), yaml_file])
+    edit_result = subprocess.run(build_editor_cmd(yaml_file))
+    if edit_result.returncode != 0:
+        log(ERROR, f"Editor exited with code {edit_result.returncode}")
+        return 1
     mtime_after = os.path.getmtime(yaml_file)
 
     if mtime_before != mtime_after:
@@ -127,6 +145,8 @@ def cmd_config(name: str) -> int:
 
 
 def cmd_start(name: str) -> int:
+    if not _validate_name(name):
+        return 1
     if not gen_config(name):
         return 1
     run_as_root("systemctl", "start", _svc(name))
@@ -134,16 +154,22 @@ def cmd_start(name: str) -> int:
 
 
 def cmd_stop(name: str) -> int:
+    if not _validate_name(name):
+        return 1
     run_as_root("systemctl", "stop", _svc(name))
     return 0
 
 
 def cmd_restart(name: str) -> int:
+    if not _validate_name(name):
+        return 1
     cmd_stop(name)
     return cmd_start(name)
 
 
 def cmd_log(name: str) -> int:
+    if not _validate_name(name):
+        return 1
     try:
         run_as_root("journalctl", "-u", f"xray@{name}", "-f")
     except (KeyboardInterrupt, subprocess.CalledProcessError):
@@ -152,6 +178,9 @@ def cmd_log(name: str) -> int:
 
 
 def cmd_remove(name: str) -> int:
+    if not _validate_name(name):
+        return 1
+
     json_file = os.path.join(ETC_DIR, f"{name}.json")
     yaml_file = os.path.join(ETC_DIR, f"{name}.yaml")
 

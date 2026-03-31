@@ -1,6 +1,7 @@
 """Shared utility functions."""
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,10 @@ def get_editor() -> str:
         if command_exists(ed):
             return ed
     return "vi"
+
+
+def build_editor_cmd(*paths: str) -> list[str]:
+    return [*shlex.split(get_editor()), *paths]
 
 
 def run_as_root(*args, check=True):
