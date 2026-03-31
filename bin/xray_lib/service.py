@@ -7,17 +7,16 @@ import sys
 
 from .config import (
     ETC_DIR,
+    SERVICE_NAME_TPL,
     TEMPLATE_DIR,
     XRAY_BIN,
     YAML2JSON_PYTHON,
     YAML2JSON_SCRIPT,
     YAML2JSON_TEMPLATE,
-    SERVICE_NAME_TPL,
 )
-from .log import log, ERROR, INFO, SUCCESS
-from .utils import run_as_root, ensure_dir, get_editor
-from .traffic import add_watch_ports, del_watch_ports
 from .cron import add_cron, del_cron
+from .log import ERROR, INFO, SUCCESS, log
+from .utils import ensure_dir, get_editor, run_as_root
 
 
 def _svc(name: str) -> str:
@@ -59,7 +58,8 @@ def gen_config(name: str) -> bool:
             "--output",
             json_file,
         ],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         cwd=template_dir,
     )
     if result.returncode != 0:

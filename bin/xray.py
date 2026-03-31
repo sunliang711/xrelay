@@ -43,7 +43,8 @@ def main() -> int:
         description="xray service management (systemd template units)",
     )
     parser.add_argument(
-        "-l", "--log-level",
+        "-l",
+        "--log-level",
         choices=["fatal", "error", "warning", "info", "success", "debug"],
         default="info",
         help="Set log level",
@@ -71,8 +72,10 @@ def main() -> int:
     p = sub.add_parser("log", help="Follow service journal logs")
     p.add_argument("name", help="Instance name")
 
-    p = sub.add_parser("traffic", help="Traffic monitoring (iptables)")
-    p.add_argument("action", help="Sub-action: monitor / saveDay / saveHour / day / hour")
+    p = sub.add_parser("traffic", help="Traffic monitoring (xray stats API)")
+    p.add_argument(
+        "action", help="Sub-action: monitor / show / saveDay / saveHour / day / hour"
+    )
     p.add_argument("extra", nargs="*", help="Arguments for the traffic action")
 
     p = sub.add_parser("remove", help="Stop, disable and delete a service config")
@@ -97,19 +100,19 @@ def main() -> int:
         name = _strip_yaml(name)
 
     dispatch = {
-        "add":          lambda: cmd_add(name),
-        "list":         lambda: cmd_list(),
-        "config":       lambda: cmd_config(name),
-        "start":        lambda: cmd_start(name),
-        "stop":         lambda: cmd_stop(name),
-        "restart":      lambda: cmd_restart(name),
-        "log":          lambda: cmd_log(name),
-        "traffic":      lambda: cmd_traffic(args.action, *args.extra),
-        "remove":       lambda: cmd_remove(name),
-        "removeAll":    lambda: cmd_remove_all(),
-        "_start_pre":   lambda: cmd_start_pre(name),
-        "_start_post":  lambda: cmd_start_post(name),
-        "_stop_post":   lambda: cmd_stop_post(name),
+        "add": lambda: cmd_add(name),
+        "list": lambda: cmd_list(),
+        "config": lambda: cmd_config(name),
+        "start": lambda: cmd_start(name),
+        "stop": lambda: cmd_stop(name),
+        "restart": lambda: cmd_restart(name),
+        "log": lambda: cmd_log(name),
+        "traffic": lambda: cmd_traffic(args.action, *args.extra),
+        "remove": lambda: cmd_remove(name),
+        "removeAll": lambda: cmd_remove_all(),
+        "_start_pre": lambda: cmd_start_pre(name),
+        "_start_post": lambda: cmd_start_post(name),
+        "_stop_post": lambda: cmd_stop_post(name),
     }
 
     handler = dispatch.get(args.command)
