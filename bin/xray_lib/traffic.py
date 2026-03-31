@@ -275,16 +275,33 @@ def _do_monitor(args):
     name = _require_config_name(args, "monitor <config_name>")
     if not name:
         return
-    print("Press <C-c> to quit.")
+
+    # Hide cursor for cleaner display, restore on exit
+    sys.stdout.write("\033[?25l")
+    sys.stdout.flush()
     try:
+        # Initial clear
+        os.system("clear")
         while True:
-            os.system("clear")
-            print(datetime.now().strftime("%Y-%m-%dT%H:%M:%S"))
-            print()
-            print(_snapshot(name))
+            # Move cursor to top-left corner instead of clearing screen
+            sys.stdout.write("\033[H")
+            output = (
+                datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                + "\n\n"
+                + _snapshot(name)
+                + "\n\nPress <C-c> to quit."
+            )
+            sys.stdout.write(output)
+            # Clear from cursor to end of screen (remove stale lines)
+            sys.stdout.write("\033[J")
+            sys.stdout.flush()
             time.sleep(1)
     except KeyboardInterrupt:
         pass
+    finally:
+        # Show cursor again
+        sys.stdout.write("\033[?25h")
+        sys.stdout.flush()
 
 
 def _do_save_day(args):
