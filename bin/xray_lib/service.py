@@ -144,7 +144,10 @@ def cmd_restart(name: str) -> int:
 
 
 def cmd_log(name: str) -> int:
-    run_as_root("journalctl", "-u", f"xray@{name}", "-f")
+    try:
+        run_as_root("journalctl", "-u", f"xray@{name}", "-f")
+    except KeyboardInterrupt:
+        pass
     return 0
 
 
