@@ -200,14 +200,14 @@ def cmd_start_pre(name: str) -> int:
 def cmd_start_post(name: str) -> int:
     """Called by ExecStartPost — add iptables rules and cron jobs."""
     print("Enter _start_post()...")
-    add_watch_ports(name)
-    add_cron(name)
+    # add_watch_ports(name)
+    # add_cron(name)
     return 0
 
 
 def cmd_stop_post(name: str) -> int:
     """Called by ExecStopPost — clean up iptables rules and cron jobs."""
     print("Enter _stop_post()...")
-    del_watch_ports(name)
-    del_cron(name)
+    # del_watch_ports(name)
+    # del_cron(name)
     return 0
