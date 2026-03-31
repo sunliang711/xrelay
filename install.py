@@ -123,8 +123,6 @@ def _install_yaml2json_env():
     if not os.path.exists(YAML2JSON_REQUIREMENTS):
         sys.exit(f"Error: requirements file not found: {YAML2JSON_REQUIREMENTS}")
 
-    _check_venv_available()
-
     subprocess.run(
         [sys.executable, "-m", "venv", YAML2JSON_VENV_DIR],
         check=True,
@@ -232,6 +230,7 @@ def main() -> int:
 
     if args.action == "install":
         _require_commands("python3")
+        _check_venv_available()
         os.makedirs(ETC_DIR, exist_ok=True)
 
         _install_xray()
