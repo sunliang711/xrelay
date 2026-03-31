@@ -99,12 +99,31 @@ def _install_xray():
     print("xray installed successfully.")
 
 
+def _check_venv_available():
+    """Check that the venv module (ensurepip) is usable."""
+    result = subprocess.run(
+        [sys.executable, "-c", "import ensurepip"],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        import platform
+        ver = platform.python_version()
+        major_minor = ".".join(ver.split(".")[:2])
+        sys.exit(
+            "Error: python3-venv is not installed.\n"
+            f"  On Debian/Ubuntu:  apt install python{major_minor}-venv\n"
+            f"  On RHEL/Fedora:    dnf install python{major_minor}-venv"
+        )
+
+
 def _install_yaml2json_env():
     print("\n=== Installing yaml2json dependencies ===")
     if not os.path.isdir(YAML2JSON_DIR):
         sys.exit(f"Error: yaml2json directory not found: {YAML2JSON_DIR}")
     if not os.path.exists(YAML2JSON_REQUIREMENTS):
         sys.exit(f"Error: requirements file not found: {YAML2JSON_REQUIREMENTS}")
+
+    _check_venv_available()
 
     subprocess.run(
         [sys.executable, "-m", "venv", YAML2JSON_VENV_DIR],
@@ -212,7 +231,7 @@ def main() -> int:
     _require_linux()
 
     if args.action == "install":
-        _require_commands("iptables", "python3")
+        _require_commands("python3")
         os.makedirs(ETC_DIR, exist_ok=True)
 
         _install_xray()
