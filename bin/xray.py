@@ -74,7 +74,7 @@ def main() -> int:
 
     p = sub.add_parser("traffic", help="Traffic monitoring (xray stats API)")
     p.add_argument(
-        "action", help="Sub-action: monitor / show / saveDay / saveHour / day / hour"
+        "action", help="Sub-action: monitor / show / saveDay / saveHour / day / hour / month"
     )
     p.add_argument("extra", nargs="*", help="Arguments for the traffic action")
 
