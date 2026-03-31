@@ -146,7 +146,7 @@ def cmd_restart(name: str) -> int:
 def cmd_log(name: str) -> int:
     try:
         run_as_root("journalctl", "-u", f"xray@{name}", "-f")
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, subprocess.CalledProcessError):
         pass
     return 0
 
