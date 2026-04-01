@@ -9,7 +9,10 @@ from datetime import datetime
 from typing import Optional
 
 from .config import ETC_DIR, TRAFFIC_DIR, XRAY_BIN
+from .log import get_logger
 from .utils import build_editor_cmd
+
+LOGGER = get_logger(__name__)
 
 
 class TrafficError(RuntimeError):
@@ -427,7 +430,7 @@ def _show_live_snapshot(name: str) -> str:
 
 def _require_config_name(args, usage):
     if not args:
-        print(f"Usage: traffic {usage}", file=sys.stderr)
+        LOGGER.error("Usage: traffic %s", usage)
         return None
     return args[0]
 
@@ -444,8 +447,8 @@ def cmd_traffic(action: str, *args) -> int:
     }
     handler = dispatch.get(action)
     if handler is None:
-        print(f"Unknown traffic action: {action}", file=sys.stderr)
-        print(f"Available actions: {', '.join(dispatch.keys())}", file=sys.stderr)
+        LOGGER.error("Unknown traffic action: %s", action)
+        LOGGER.info("Available actions: %s", ", ".join(dispatch.keys()))
         return 1
     return handler(list(args))
 
@@ -457,7 +460,7 @@ def _do_show(args):
     try:
         print(_show_live_snapshot(name))
     except TrafficError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        LOGGER.error("%s", exc)
         return 1
     return 0
 
@@ -497,7 +500,7 @@ def _do_save_hour(args):
     try:
         delta_snapshot, paths = _save_usage(name)
     except TrafficError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        LOGGER.error("%s", exc)
         return 1
 
     print(_snapshot_to_text(delta_snapshot, "Hourly Usage"))
@@ -516,7 +519,7 @@ def _do_save_day(args):
     try:
         delta_snapshot, paths = _save_usage(name)
     except TrafficError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        LOGGER.error("%s", exc)
         return 1
 
     print(_snapshot_to_text(delta_snapshot, "Usage Since Last Save"))
@@ -528,7 +531,7 @@ def _do_save_day(args):
 
 def _open_report(path: str) -> int:
     if not os.path.exists(path):
-        print(f"No data file: {path}")
+        LOGGER.error("No data file: %s", path)
         return 1
     return subprocess.run(build_editor_cmd(path)).returncode
 

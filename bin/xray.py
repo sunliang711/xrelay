@@ -8,21 +8,25 @@ traffic monitoring, and removing service instances.
 
 import argparse
 import os
+import subprocess
 import sys
+from typing import Optional
 
 # Resolve symlinks so imports work when invoked via /usr/local/bin/xray.py
 _real_dir = os.path.dirname(os.path.realpath(__file__))
 if _real_dir not in sys.path:
     sys.path.insert(0, _real_dir)
 
-from xray_lib.log import set_log_level  # noqa: E402
+from xray_lib.log import get_logger, set_log_level  # noqa: E402
 from xray_lib.service import (  # noqa: E402
     cmd_add,
     cmd_config,
+    cmd_disable,
     cmd_list,
     cmd_log,
     cmd_remove,
     cmd_remove_all,
+    cmd_enable,
     cmd_restart,
     cmd_start,
     cmd_start_post,
@@ -32,9 +36,34 @@ from xray_lib.service import (  # noqa: E402
 )
 from xray_lib.traffic import cmd_traffic  # noqa: E402
 
+LOGGER = get_logger(__name__)
+
 
 def _strip_yaml(name: str) -> str:
     return name.removesuffix(".yaml")
+
+
+def _command_summary(args) -> Optional[str]:
+    name = getattr(args, "name", None)
+    svc = f"xray@{name}.service" if name else None
+    summaries = {
+        "add": f"Create a new config, generate JSON, and enable {svc}",
+        "list": "List all configured xray instances",
+        "config": f"Edit {name}.yaml and restart the service if the config changes",
+        "start": f"Generate JSON and start {svc}",
+        "stop": f"Stop {svc}",
+        "restart": f"Regenerate JSON and restart {svc}",
+        "enable": f"Enable {svc} to start automatically",
+        "disable": f"Disable {svc} from starting automatically",
+        "log": f"Follow journalctl logs for {svc}",
+        "remove": f"Stop {svc}, disable it, and delete its config files",
+        "removeAll": "Stop, disable, and delete every configured instance",
+        "traffic": f"Run traffic action '{getattr(args, 'action', '')}'".strip(),
+        "_start_pre": f"Run the systemd start pre-check for {name}",
+        "_start_post": f"Run the systemd start post-hook for {name}",
+        "_stop_post": f"Run the systemd stop post-hook for {name}",
+    }
+    return summaries.get(args.command)
 
 
 def main() -> int:
@@ -69,6 +98,12 @@ def main() -> int:
     p = sub.add_parser("restart", help="Restart the service")
     p.add_argument("name", help="Instance name")
 
+    p = sub.add_parser("enable", help="Enable the service to start automatically")
+    p.add_argument("name", help="Instance name")
+
+    p = sub.add_parser("disable", help="Disable the service from starting automatically")
+    p.add_argument("name", help="Instance name")
+
     p = sub.add_parser("log", help="Follow service journal logs")
     p.add_argument("name", help="Instance name")
 
@@ -98,6 +133,11 @@ def main() -> int:
     name = getattr(args, "name", None)
     if name:
         name = _strip_yaml(name)
+        args.name = name
+
+    summary = _command_summary(args)
+    if summary:
+        LOGGER.info("%s", summary)
 
     dispatch = {
         "add": lambda: cmd_add(name),
@@ -106,6 +146,8 @@ def main() -> int:
         "start": lambda: cmd_start(name),
         "stop": lambda: cmd_stop(name),
         "restart": lambda: cmd_restart(name),
+        "enable": lambda: cmd_enable(name),
+        "disable": lambda: cmd_disable(name),
         "log": lambda: cmd_log(name),
         "traffic": lambda: cmd_traffic(args.action, *args.extra),
         "remove": lambda: cmd_remove(name),
@@ -119,7 +161,10 @@ def main() -> int:
     if handler is None:
         parser.print_help()
         return 1
-    return handler() or 0
+    try:
+        return handler() or 0
+    except subprocess.CalledProcessError as exc:
+        return exc.returncode or 1
 
 
 if __name__ == "__main__":

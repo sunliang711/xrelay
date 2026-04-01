@@ -5,6 +5,9 @@ import subprocess
 import tempfile
 
 from .config import CRON_BEGIN, CRON_END, XRAY_PY
+from .log import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 def _get_crontab() -> str:
@@ -25,13 +28,13 @@ def _set_crontab(content: str):
 
 
 def add_cron(config_name: str):
-    print("Enter _addCron()...")
+    LOGGER.info("Adding traffic cron jobs for %s", config_name)
     begin_marker = f"{CRON_BEGIN}-{config_name}"
     end_marker = f"{CRON_END}-{config_name}"
 
     current = _get_crontab()
     if begin_marker in current:
-        print("Already exist, quit.")
+        LOGGER.info("Traffic cron jobs already exist for %s", config_name)
         return
 
     block = (
@@ -42,15 +45,17 @@ def add_cron(config_name: str):
     )
     new = current.rstrip("\n") + "\n" + block if current.strip() else block
     _set_crontab(new)
+    LOGGER.success("Added traffic cron jobs for %s", config_name)
 
 
 def del_cron(config_name: str):
-    print("Enter _delCron()...")
+    LOGGER.info("Removing traffic cron jobs for %s", config_name)
     begin_marker = f"{CRON_BEGIN}-{config_name}"
     end_marker = f"{CRON_END}-{config_name}"
 
     current = _get_crontab()
     if begin_marker not in current:
+        LOGGER.info("No traffic cron jobs found for %s", config_name)
         return
 
     lines = current.split("\n")
@@ -66,3 +71,4 @@ def del_cron(config_name: str):
             filtered.append(line)
 
     _set_crontab("\n".join(filtered))
+    LOGGER.success("Removed traffic cron jobs for %s", config_name)

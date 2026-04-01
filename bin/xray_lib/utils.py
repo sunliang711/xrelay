@@ -4,7 +4,10 @@ import os
 import shlex
 import shutil
 import subprocess
-import sys
+
+from .log import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 def command_exists(cmd: str) -> bool:
@@ -32,19 +35,39 @@ def run_as_root(*args, check=True):
         cmd = list(args)
     else:
         if not command_exists("sudo"):
-            print("Error: 'sudo' is required but not found.", file=sys.stderr)
-            sys.exit(1)
+            LOGGER.critical("'sudo' is required but not found")
+            raise SystemExit(1)
         cmd = ["sudo"] + list(args)
-    print(f"[Running]: {' '.join(cmd)}")
-    return subprocess.run(cmd, check=check)
+    LOGGER.info("Running command: %s", shlex.join(cmd))
+    try:
+        result = subprocess.run(cmd, check=check)
+    except subprocess.CalledProcessError:
+        LOGGER.error("Command failed: %s", shlex.join(cmd))
+        raise
+    if result.returncode != 0:
+        LOGGER.warning("Command exited with code %s: %s", result.returncode, shlex.join(cmd))
+    return result
 
 
 def run(*args, check=True, capture=False):
     """Run a command and optionally capture output."""
     cmd = list(args)
+    LOGGER.info("Running command: %s", shlex.join(cmd))
     if capture:
-        return subprocess.run(cmd, check=check, capture_output=True, text=True)
-    return subprocess.run(cmd, check=check)
+        try:
+            result = subprocess.run(cmd, check=check, capture_output=True, text=True)
+        except subprocess.CalledProcessError:
+            LOGGER.error("Command failed: %s", shlex.join(cmd))
+            raise
+    else:
+        try:
+            result = subprocess.run(cmd, check=check)
+        except subprocess.CalledProcessError:
+            LOGGER.error("Command failed: %s", shlex.join(cmd))
+            raise
+    if result.returncode != 0:
+        LOGGER.warning("Command exited with code %s: %s", result.returncode, shlex.join(cmd))
+    return result
 
 
 def ensure_dir(*dirs):
