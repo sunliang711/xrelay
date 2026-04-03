@@ -347,53 +347,99 @@ def parse_args():
     return args
 
 
-def build_sources(project_name, version, filename, is_latest, mode="auto", source=None):
-    """根据下载模式构造下载源列表"""
-    def append_unique_source(source_list, candidate):
-        if candidate and candidate[1] not in {item[1] for item in source_list}:
-            source_list.append(candidate)
+def make_source(name, url, filename, version=None):
+    """构造下载源条目"""
+    return {
+        "name": name,
+        "url": url,
+        "filename": filename,
+        "version": version,
+    }
 
+
+def build_github_source(project_name, version):
+    """构造 GitHub 下载源"""
     project = PROJECTS[project_name]
+    filename = build_filename(project, version)
     if project.get("latest_only"):
         github_tag = project.get("github_latest_tag", "latest")
-        github_url = (
+        url = (
             f"https://github.com/{project['repo']}/releases/download/"
             f"{github_tag}/{filename}"
         )
     else:
-        github_url = (
+        url = (
             f"https://github.com/{project['repo']}/releases/download/"
             f"v{version}/{filename}"
         )
-    r2_versioned = (
-        None if version is None else f"{R2_ROOT}/{project['r2_path']}/v{version}/{filename}"
-    )
-    r2_latest = None
-    if is_latest and project.get("r2_latest"):
-        r2_latest = f"{R2_ROOT}/{project['r2_path']}/latest/{filename}"
+    return make_source("GitHub Release", url, filename, version)
 
-    github_source = ("GitHub Release", github_url)
-    preferred_r2_source = None
-    if r2_latest:
-        preferred_r2_source = ("Cloudflare R2 (latest)", r2_latest)
-    elif r2_versioned:
-        preferred_r2_source = ("Cloudflare R2 (versioned)", r2_versioned)
+
+def build_r2_latest_source(project_name):
+    """构造 R2 当前可用的最新下载源"""
+    project = PROJECTS[project_name]
+    template = project["filename_tpl"]
+    needs_version = "{version}" in template
+    r2_version = None
+
+    if needs_version or not project.get("r2_latest"):
+        r2_version = _version_from_r2(project)
+
+    filename = build_filename(project, r2_version)
+    if project.get("r2_latest"):
+        name = "Cloudflare R2 (latest)"
+        url = f"{R2_ROOT}/{project['r2_path']}/latest/{filename}"
+    else:
+        name = "Cloudflare R2 (latest versioned)"
+        url = f"{R2_ROOT}/{project['r2_path']}/v{r2_version}/{filename}"
+
+    return make_source(name, url, filename, r2_version)
+
+
+def build_r2_versioned_source(project_name, version):
+    """构造 R2 指定版本下载源"""
+    project = PROJECTS[project_name]
+    if version is None:
+        raise ValueError("R2 指定版本下载源需要明确的版本号")
+
+    filename = build_filename(project, version)
+    url = f"{R2_ROOT}/{project['r2_path']}/v{version}/{filename}"
+    return make_source("Cloudflare R2 (versioned)", url, filename, version)
+
+
+def build_sources(project_name, version, is_latest, mode="auto", source=None):
+    """根据下载模式构造下载源列表"""
+    project = PROJECTS[project_name]
+
+    github_source = build_github_source(project_name, version)
 
     if mode == "manual":
         if source == "github":
             return [github_source]
         if source == "r2":
-            if preferred_r2_source:
-                return [preferred_r2_source]
-            raise ValueError(f"{project_name} 当前无法从 R2 构造下载链接")
+            if is_latest:
+                return [build_r2_latest_source(project_name)]
+            return [build_r2_versioned_source(project_name, version)]
         raise ValueError(f"不支持的手动下载源: {source}")
 
     sources = [github_source]
-    append_unique_source(sources, ("Cloudflare R2 (latest)", r2_latest) if r2_latest else None)
-    append_unique_source(
-        sources,
-        ("Cloudflare R2 (versioned)", r2_versioned) if r2_versioned else None,
-    )
+    if is_latest:
+        try:
+            r2_source = build_r2_latest_source(project_name)
+        except Exception as e:
+            print(f"  [Cloudflare R2] 跳过回退源: {e}")
+            return sources
+
+        if version and r2_source["version"] and r2_source["version"] != version:
+            print(
+                f"  ! GitHub 最新版本为 v{version}，"
+                f"但 R2 当前可用版本为 v{r2_source['version']}；"
+                "GitHub 失败时将回退到 R2 当前版本。"
+            )
+        sources.append(r2_source)
+        return sources
+
+    sources.append(build_r2_versioned_source(project_name, version))
     return sources
 
 
@@ -429,6 +475,8 @@ def resolve_version(project_name, project, args):
 def build_filename(project, version):
     """根据项目配置生成下载文件名"""
     template = project["filename_tpl"]
+    if "{version}" in template and version is None:
+        raise ValueError("当前文件名模板需要版本号，但尚未解析到版本")
     return template.format(version=version) if "{version}" in template else template
 
 
@@ -438,12 +486,18 @@ def cleanup_partial_download(path):
         os.remove(path)
 
 
-def try_sources(sources, dest, output_dir, should_extract):
+def try_sources(sources, output_dir, should_extract):
     """按顺序尝试所有下载源，成功后返回保存路径"""
-    for i, (name, url) in enumerate(sources):
+    for i, source in enumerate(sources):
         is_last = i == len(sources) - 1
+        name = source["name"]
+        url = source["url"]
+        version = source.get("version")
+        dest = os.path.join(output_dir, source["filename"])
         print(f"\n{'─' * 60}")
         print(f"尝试源: {name}")
+        if version:
+            print(f"  版本: v{version}")
         print(f"  URL : {url}")
         try:
             download(url, dest, min_speed=0 if is_last else SLOW_THRESHOLD)
@@ -494,12 +548,10 @@ def main():
     if version is None and not is_latest:
         return 1
 
-    filename = build_filename(project, version)
-    sources = build_sources(project_name, version, filename, is_latest, mode=args.mode, source=args.source)
+    sources = build_sources(project_name, version, is_latest, mode=args.mode, source=args.source)
 
     os.makedirs(args.output, exist_ok=True)
-    dest = os.path.join(args.output, filename)
-    saved_path = try_sources(sources, dest, args.output, args.extract)
+    saved_path = try_sources(sources, args.output, args.extract)
     if saved_path:
         print(f"\n文件已保存: {saved_path}")
         return 0
