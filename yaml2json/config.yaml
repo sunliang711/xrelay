@@ -14,10 +14,6 @@ inbounds:
     loglevel: info
     logfile: /tmp/xray711.log
     api_port: 18080
-    # 下面vmess共用的端口和网络
-    vmess_port: 4110
-    vmess_network: raw
-    api_port: 18080
 
   shadowsocks:
     - user: nicof

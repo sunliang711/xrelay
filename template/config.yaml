@@ -16,9 +16,6 @@ inbounds:
     logfile: ""
     log_access: ""
     log_error: ""
-    # 下面vmess共用的端口和网络
-    vmess_port: 4110
-    vmess_network: raw
     api_port: 18080
 
   shadowsocks:
@@ -38,6 +35,7 @@ inbounds:
       cipher: auto
       uuid: e2791dbb-f350-4a71-998a-da3b184a1cef
       alterId: 0
+      network: raw
       sub: true
 
   socks5:

@@ -101,12 +101,27 @@ def _build_shadowsocks_inbound(item):
 
 
 def _build_vmess_inbound(config, items):
+    if not items:
+        return None
+
+    ports = set()
+    networks = set()
     for item in items:
         _require_string(item.get("uuid"), f"{item['tag']}.uuid")
+        ports.add(item["port"])
+        networks.add(_require_string(item.get("network"), f"{item['tag']}.network"))
+
+    if len(ports) != 1:
+        raise ConfigError("all vmess tag ports must be identical")
+    if len(networks) != 1:
+        raise ConfigError("all vmess networks must be identical")
+
+    port = next(iter(ports))
+    network = next(iter(networks))
 
     return {
         "tag": "vmess",
-        "port": _require_int(config.get("vmess_port"), "inbounds.config.vmess_port", 0),
+        "port": port,
         "protocol": "vmess",
         "settings": {
             "clients": [
@@ -119,7 +134,7 @@ def _build_vmess_inbound(config, items):
             ]
         },
         "streamSettings": {
-            "network": str(config.get("vmess_network", "raw")),
+            "network": network,
         },
     }
 
@@ -316,7 +331,9 @@ def build_config(config_path):
 
     built_inbounds = []
     built_inbounds.extend(_build_shadowsocks_inbound(item) for item in shadowsocks_items)
-    built_inbounds.append(_build_vmess_inbound(runtime_config, vmess_items))
+    vmess_inbound = _build_vmess_inbound(runtime_config, vmess_items)
+    if vmess_inbound is not None:
+        built_inbounds.append(vmess_inbound)
     built_inbounds.extend(_build_http_inbound(item) for item in http_items)
     built_inbounds.extend(_build_socks5_inbound(item) for item in socks5_items)
 

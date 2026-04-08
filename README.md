@@ -205,8 +205,6 @@ inbounds:
     logfile: ""
     log_access: ""
     log_error: ""
-    vmess_port: 4110          # vmess 共用端口
-    vmess_network: raw        # vmess 传输方式
     api_port: 18080           # Stats API 端口
 
   shadowsocks:
@@ -225,6 +223,7 @@ inbounds:
       cipher: auto
       uuid: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       alterId: 0
+      network: raw
       sub: true
 
   socks5:
@@ -248,6 +247,8 @@ inbounds:
 ```
 
 **tag 格式**：`protocol:port:remark`，例如 `ss:4000:alice`。tag 同时用于 xray 的 inbound 标识和流量统计的索引键。
+
+**vmess 约束**：每条 `vmess` 都必须显式填写 `network`，并且所有 `vmess` 的 `tag` 中端口与 `network` 必须完全一致。`xrelay` 会校验这一点，并将它们合并到同一个 vmess inbound 下。
 
 ## 日志级别
 

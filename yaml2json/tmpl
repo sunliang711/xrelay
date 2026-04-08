@@ -28,7 +28,7 @@
         {%- if not ns.first -%},{%- endif %}
         {
             "tag": "vmess",
-            "port": {{vmess_port}},
+            "port": {{vmess[0].port if vmess else 0}},
             "protocol": "vmess",
             "settings": {
                 "clients": [
@@ -43,7 +43,7 @@
                 ]
             },
             "streamSettings": {
-                "network": "{{vmess_network}}"
+                "network": "{{vmess[0].network if vmess else 'raw'}}"
             }
         }
         {%- set ns.first = false -%}
