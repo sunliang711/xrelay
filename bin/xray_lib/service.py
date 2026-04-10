@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 
 from .config import (
     ETC_DIR,
@@ -18,6 +19,12 @@ from .log import get_logger
 from .utils import build_editor_cmd, ensure_dir, run_as_root
 
 LOGGER = get_logger(__name__)
+
+_COLOR_CODES = {
+    "red": "\033[31m",
+    "green": "\033[32m",
+    "reset": "\033[0m",
+}
 
 
 def _svc(name: str) -> str:
@@ -41,6 +48,45 @@ def _config_paths(name: str) -> tuple[str, str]:
         os.path.join(ETC_DIR, f"{name}.yaml"),
         os.path.join(ETC_DIR, f"{name}.json"),
     )
+
+
+def _stdout_color(name: str) -> str:
+    if hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
+        return _COLOR_CODES[name]
+    return ""
+
+
+def _get_active_states(names: list[str]) -> dict[str, str]:
+    if not names:
+        return {}
+
+    result = subprocess.run(
+        ["systemctl", "is-active", *(_svc(name) for name in names)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    lines = result.stdout.splitlines() if result.stdout else []
+
+    states = {}
+    for index, name in enumerate(names):
+        states[name] = lines[index].strip() if index < len(lines) else "unknown"
+    return states
+
+
+def _print_instance_overview(names: list[str]) -> None:
+    states = _get_active_states(names)
+
+    for name in names:
+        active = states.get(name) == "active"
+        if active:
+            marker, color, state = "●", _stdout_color("green"), "running"
+        else:
+            marker, color, state = "○", _stdout_color("red"), "stopped"
+
+        yaml_file, _ = _config_paths(name)
+        print(f"  {color}{marker} xray@{name}{_stdout_color('reset')}  [{state}]")
+        print(f"    配置: {yaml_file}")
 
 
 # ── Config generation ────────────────────────────────────────────────────
@@ -125,13 +171,12 @@ def cmd_list() -> int:
         LOGGER.info("No configs found in %s", ETC_DIR)
         return 0
 
-    LOGGER.info("Listing configs in %s", ETC_DIR)
     configs = sorted(f for f in os.listdir(ETC_DIR) if f.endswith(".yaml"))
     if not configs:
         LOGGER.info("No configs found in %s", ETC_DIR)
         return 0
-    for c in configs:
-        print(c)
+
+    _print_instance_overview([os.path.splitext(config)[0] for config in configs])
     return 0
 
 
