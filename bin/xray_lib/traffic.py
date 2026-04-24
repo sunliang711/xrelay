@@ -163,9 +163,7 @@ def _query_stats(api_port: int) -> dict[str, int]:
 def _format_usage(size_bytes: int) -> str:
     if size_bytes < GB:
         return f"{size_bytes / MB:.2f} MB"
-    gb_part = size_bytes // GB
-    mb_part = (size_bytes % GB) / MB
-    return f"{gb_part} GB + {mb_part:.2f} MB"
+    return f"{size_bytes / GB:.2f} GB"
 
 
 def _collect_snapshot(config_name: str) -> dict:
