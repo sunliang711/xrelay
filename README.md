@@ -144,6 +144,13 @@ xray.py log myserver
 # 删除实例（会先 stop + disable，再删除配置）
 xray.py remove    myserver
 xray.py removeAll
+
+# 导出全部配置 / 指定配置
+xray.py export --all -o xrelay-configs.zip
+xray.py export myserver another -o selected-configs.zip
+
+# 导入配置（已存在的实例会跳过）
+xray.py import xrelay-configs.zip
 ```
 
 ### 流量统计

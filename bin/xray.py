@@ -34,6 +34,7 @@ from xray_lib.service import (  # noqa: E402
     cmd_stop,
     cmd_stop_post,
 )
+from xray_lib.import_export import cmd_export, cmd_import  # noqa: E402
 from xray_lib.traffic import cmd_traffic  # noqa: E402
 
 LOGGER = get_logger(__name__)
@@ -58,6 +59,8 @@ def _command_summary(args) -> Optional[str]:
         "log": f"Follow journalctl logs for {svc}",
         "remove": f"Stop {svc}, disable it, and delete its config files",
         "removeAll": "Stop, disable, and delete every configured instance",
+        "export": "Export selected or all xray instance configs",
+        "import": f"Import xray instance configs from {getattr(args, 'path', '')}; existing configs are skipped",
         "traffic": f"Run traffic action '{getattr(args, 'action', '')}'".strip(),
         "_start_pre": f"Run the systemd start pre-check for {name}",
         "_start_post": f"Run the systemd start post-hook for {name}",
@@ -118,6 +121,15 @@ def main() -> int:
 
     sub.add_parser("removeAll", help="Remove every service instance")
 
+    p = sub.add_parser("export", help="Export selected or all config files")
+    p.add_argument("names", nargs="*", help="Instance names to export")
+    p.add_argument("-a", "--all", action="store_true", help="Export all instances")
+    p.add_argument("-o", "--output", help="Output zip file")
+    p.add_argument("-f", "--force", action="store_true", help="Overwrite output file")
+
+    p = sub.add_parser("import", help="Import config files; existing instances are skipped")
+    p.add_argument("path", help="Export zip file or a single YAML config")
+
     # ── internal hooks (called by systemd ExecStart{Pre,Post} / ExecStopPost)
     for hook in ("_start_pre", "_start_post", "_stop_post"):
         p = sub.add_parser(hook)
@@ -152,6 +164,8 @@ def main() -> int:
         "traffic": lambda: cmd_traffic(args.action, *args.extra),
         "remove": lambda: cmd_remove(name),
         "removeAll": lambda: cmd_remove_all(),
+        "export": lambda: cmd_export(args.names, args.output, args.all, args.force),
+        "import": lambda: cmd_import(args.path),
         "_start_pre": lambda: cmd_start_pre(name),
         "_start_post": lambda: cmd_start_post(name),
         "_stop_post": lambda: cmd_stop_post(name),
