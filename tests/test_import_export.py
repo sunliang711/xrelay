@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import tempfile
 import unittest
@@ -40,8 +41,8 @@ class ImportExportTests(unittest.TestCase):
         self.assertEqual(result, 0)
         with zipfile.ZipFile(output) as archive:
             self.assertIn("manifest.json", archive.namelist())
-            self.assertIn("configs/alpha.yaml", archive.namelist())
-            self.assertNotIn("configs/beta.yaml", archive.namelist())
+            self.assertIn("instances/alpha/alpha.yaml", archive.namelist())
+            self.assertNotIn("instances/beta/beta.yaml", archive.namelist())
 
     def test_export_defaults_to_all_configs(self):
         self._write_config("alpha", "name: alpha\n")
@@ -52,15 +53,21 @@ class ImportExportTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         with zipfile.ZipFile(output) as archive:
-            self.assertIn("configs/alpha.yaml", archive.namelist())
-            self.assertIn("configs/beta.yaml", archive.namelist())
+            self.assertIn("instances/alpha/alpha.yaml", archive.namelist())
+            self.assertIn("instances/beta/beta.yaml", archive.namelist())
 
-    def test_import_skips_existing_configs(self):
+    def test_import_manifest_archive_skips_existing_configs(self):
         self._write_config("alpha", "old: true\n")
         source = os.path.join(self.tmp_dir.name, "source.zip")
+        manifest = {
+            "format": import_export.EXPORT_FORMAT,
+            "version": 1,
+            "instances": ["alpha", "beta"],
+        }
         with zipfile.ZipFile(source, "w") as archive:
-            archive.writestr("configs/alpha.yaml", "new: false\n")
-            archive.writestr("configs/beta.yaml", "new: true\n")
+            archive.writestr(import_export.EXPORT_MANIFEST, json.dumps(manifest))
+            archive.writestr("instances/alpha/alpha.yaml", "new: false\n")
+            archive.writestr("instances/beta/beta.yaml", "new: true\n")
 
         result = import_export.cmd_import(source)
 
@@ -69,6 +76,39 @@ class ImportExportTests(unittest.TestCase):
             self.assertEqual(file_obj.read(), "old: true\n")
         with open(os.path.join(import_export.ETC_DIR, "beta.yaml")) as file_obj:
             self.assertEqual(file_obj.read(), "new: true\n")
+
+    def test_import_legacy_archive(self):
+        source = os.path.join(self.tmp_dir.name, "legacy.zip")
+        manifest = {
+            "version": 1,
+            "configs": [{"name": "beta", "file": "configs/beta.yaml"}],
+        }
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr(import_export.EXPORT_MANIFEST, json.dumps(manifest))
+            archive.writestr("configs/beta.yaml", "new: true\n")
+
+        result = import_export.cmd_import(source)
+
+        self.assertEqual(result, 0)
+        with open(os.path.join(import_export.ETC_DIR, "beta.yaml")) as file_obj:
+            self.assertEqual(file_obj.read(), "new: true\n")
+
+    def test_import_rejects_unsafe_member_path(self):
+        source = os.path.join(self.tmp_dir.name, "bad.zip")
+        manifest = {
+            "format": import_export.EXPORT_FORMAT,
+            "version": 1,
+            "instances": ["beta"],
+        }
+        with zipfile.ZipFile(source, "w") as archive:
+            archive.writestr(import_export.EXPORT_MANIFEST, json.dumps(manifest))
+            archive.writestr("instances/beta/beta.yaml", "new: true\n")
+            archive.writestr("instances/beta/../evil.yaml", "bad\n")
+
+        result = import_export.cmd_import(source)
+
+        self.assertEqual(result, 1)
+        self.assertFalse(os.path.exists(os.path.join(import_export.ETC_DIR, "evil.yaml")))
 
 
 if __name__ == "__main__":

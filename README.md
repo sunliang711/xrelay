@@ -146,6 +146,7 @@ xray.py remove    myserver
 xray.py removeAll
 
 # 导出全部配置 / 指定配置
+xray.py export -o xrelay-configs.zip
 xray.py export --all -o xrelay-configs.zip
 xray.py export myserver another -o selected-configs.zip
 
