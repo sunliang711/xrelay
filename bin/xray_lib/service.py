@@ -166,6 +166,39 @@ def cmd_add(name: str) -> int:
     return cmd_enable(name)
 
 
+def cmd_dump(source: str, target: str) -> int:
+    if not _validate_name(source) or not _validate_name(target):
+        return 1
+
+    source_yaml, _ = _config_paths(source)
+    target_yaml, target_json = _config_paths(target)
+
+    if not os.path.exists(source_yaml):
+        LOGGER.error("No such config: %s", source)
+        return 1
+    if os.path.exists(target_yaml) or os.path.exists(target_json):
+        LOGGER.error("%s already exists", target)
+        return 1
+
+    ensure_dir(ETC_DIR)
+    LOGGER.info("Copying config from %s to %s", source, target)
+    shutil.copy2(source_yaml, target_yaml)
+    LOGGER.info("Copied config to %s", target_yaml)
+
+    LOGGER.info("Opening config editor for %s", target_yaml)
+    edit_result = subprocess.run(build_editor_cmd(target_yaml))
+    if edit_result.returncode != 0:
+        LOGGER.error("Editor exited with code %s", edit_result.returncode)
+        return 1
+
+    if not gen_config(target):
+        return 1
+
+    LOGGER.info("Reloading systemd units before enabling %s", _svc(target))
+    run_as_root("systemctl", "daemon-reload")
+    return cmd_enable(target)
+
+
 def cmd_list() -> int:
     if not os.path.isdir(ETC_DIR):
         LOGGER.info("No configs found in %s", ETC_DIR)

@@ -22,6 +22,7 @@ from xray_lib.service import (  # noqa: E402
     cmd_add,
     cmd_config,
     cmd_disable,
+    cmd_dump,
     cmd_list,
     cmd_log,
     cmd_remove,
@@ -49,6 +50,10 @@ def _command_summary(args) -> Optional[str]:
     svc = f"xray@{name}.service" if name else None
     summaries = {
         "add": f"Create a new config, generate JSON, and enable {svc}",
+        "dump": (
+            f"Copy {getattr(args, 'source', '')}.yaml to "
+            f"{getattr(args, 'target', '')}.yaml, generate JSON, and enable the new service"
+        ),
         "list": "List all configured xray instances",
         "config": f"Edit {name}.yaml and restart the service if the config changes",
         "start": f"Generate JSON and start {svc}",
@@ -86,6 +91,10 @@ def main() -> int:
     # ── public commands ─────────────────────────────────────────────
     p = sub.add_parser("add", help="Create a new xray config and enable the service")
     p.add_argument("name", help="Instance name")
+
+    p = sub.add_parser("dump", help="Copy an existing config to a new instance")
+    p.add_argument("source", help="Source instance name")
+    p.add_argument("target", help="Target instance name")
 
     sub.add_parser("list", help="List all config files")
 
@@ -146,6 +155,14 @@ def main() -> int:
     if name:
         name = _strip_yaml(name)
         args.name = name
+    source = getattr(args, "source", None)
+    if source:
+        source = _strip_yaml(source)
+        args.source = source
+    target = getattr(args, "target", None)
+    if target:
+        target = _strip_yaml(target)
+        args.target = target
 
     summary = _command_summary(args)
     if summary:
@@ -153,6 +170,7 @@ def main() -> int:
 
     dispatch = {
         "add": lambda: cmd_add(name),
+        "dump": lambda: cmd_dump(source, target),
         "list": lambda: cmd_list(),
         "config": lambda: cmd_config(name),
         "start": lambda: cmd_start(name),
